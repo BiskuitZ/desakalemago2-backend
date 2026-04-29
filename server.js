@@ -3,17 +3,17 @@ const cors = require('cors');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const fetch = require('node-fetch'); // Untuk GitHub API
 
 const app = express();
-
-// ✅ PORT DINAMIS (WAJIB UNTUK RAILWAY)
 const PORT = process.env.PORT || 3000;
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 
-// Git config untuk auto commit
-const GIT_USERNAME = process.env.GIT_USERNAME || 'biskuitz';
-const GIT_TOKEN = process.env.GIT_TOKEN || '';
+// GitHub Config
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_OWNER = 'biskuitz';           // Ganti dengan username GitHub Anda
+const GITHUB_REPO = 'desakalemago2';       // Nama repo Anda
+const GITHUB_PATH = 'backend/users.xlsx';  // Path file di repo
 
 // Fungsi baca users dari Excel
 function readUsers() {
@@ -32,27 +32,65 @@ function readUsers() {
   return XLSX.utils.sheet_to_json(ws);
 }
 
-// Fungsi simpan users ke Excel + Auto Commit ke GitHub
-function saveUsers(users) {
+// Fungsi simpan ke Excel + Update ke GitHub
+async function saveUsers(users) {
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
   XLSX.writeFile(wb, USERS_FILE);
 
-  // === AUTO COMMIT KE GITHUB ===
-  if (GIT_TOKEN) {
+  console.log('✅ Excel file saved locally');
+
+  // === UPDATE KE GITHUB ===
+  if (GITHUB_TOKEN) {
     try {
-      const remoteUrl = `https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/biskuitz/desakalemago2.git`;
-      
-      execSync(`git remote set-url origin ${remoteUrl}`);
-      execSync('git config user.email "bot@desakalemago.com"');
-      execSync('git config user.name "Desa Kalemago Bot"');
-      execSync('git add users.xlsx');
-      execSync('git commit -m "Auto-update: New user registered at ' + new Date().toISOString() + '"');
-      execSync('git push origin main');
-      console.log('✅ Excel updated & pushed to GitHub');
+      // Baca file yang baru disimpan
+      const fileContent = fs.readFileSync(USERS_FILE);
+      const contentBase64 = fileContent.toString('base64');
+
+      // Dapatkan SHA file yang lama (diperlukan untuk update)
+      const getFileRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+
+      let sha = '';
+      if (getFileRes.ok) {
+        const fileData = await getFileRes.json();
+        sha = fileData.sha;
+      }
+
+      // Update file di GitHub
+      const updateRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: `Auto-update: New user registered at ${new Date().toISOString()}`,
+            content: contentBase64,
+            sha: sha || undefined
+          })
+        }
+      );
+
+      if (updateRes.ok) {
+        console.log('✅ Excel file updated on GitHub!');
+      } else {
+        const error = await updateRes.text();
+        console.log('⚠️ GitHub update failed:', error);
+      }
     } catch (err) {
-      console.log('⚠️ Git push failed:', err.message);
+      console.log('⚠️ GitHub API error:', err.message);
     }
   }
 }
@@ -64,7 +102,7 @@ app.use(cors());
 app.use(express.json());
 
 // Register
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password, name } = req.body;
     
@@ -87,7 +125,7 @@ app.post('/api/auth/register', (req, res) => {
     };
     
     users.push(newUser);
-    saveUsers(users);
+    await saveUsers(users);
     
     res.status(201).json({
       success: true,
