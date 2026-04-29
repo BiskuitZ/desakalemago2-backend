@@ -7,6 +7,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
+const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 
 // === GITHUB CONFIG ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -315,6 +316,163 @@ app.get('/api/stats', (req, res) => {
     totalVisitors: visitorCount,
     recentVisitors: lastVisitors.slice(0, 10)
   });
+});
+
+// ============================================
+// PRODUCT MANAGEMENT
+// ============================================
+
+function loadProducts() {
+  if (!fs.existsSync(PRODUCTS_FILE)) {
+    const defaultProducts = [
+      {
+        id: 1,
+        name: "Kopi Robusta Kalemago",
+        price: 25000,
+        image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400",
+        description: "Kopi robusta premium dari Desa Kalemago, 250gr",
+        stock: 50
+      }
+    ];
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(defaultProducts, null, 2));
+    return defaultProducts;
+  }
+  return JSON.parse(fs.readFileSync(PRODUCTS_FILE, 'utf8'));
+}
+
+function saveProducts(products) {
+  fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
+  console.log('✅ Products saved');
+}
+
+async function saveAndPushProducts(products) {
+  if (!GITHUB_TOKEN) return;
+  
+  try {
+    const content = Buffer.from(JSON.stringify(products, null, 2)).toString('base64');
+    
+    let sha = '';
+    try {
+      const getRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/products.json`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      if (getRes.ok) {
+        sha = (await getRes.json()).sha;
+      }
+    } catch (e) {}
+    
+    await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/products.json`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update products: ${new Date().toISOString()}`,
+          content: content,
+          sha: sha || undefined
+        })
+      }
+    );
+    
+    console.log('✅ Products pushed to GitHub');
+  } catch (err) {
+    console.log('❌ Push products error:', err.message);
+  }
+}
+
+// Get all products
+app.get('/api/products', (req, res) => {
+  const products = loadProducts();
+  res.json({ success: true, products });
+});
+
+// Add new product
+app.post('/api/products', requireDeveloper, async (req, res) => {
+  try {
+    const { name, price, image, description, stock } = req.body;
+    
+    if (!name || !price || !image || !description) {
+      return res.status(400).json({ success: false, message: 'Semua field wajib diisi' });
+    }
+    
+    const products = loadProducts();
+    const newProduct = {
+      id: products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1,
+      name,
+      price: parseInt(price),
+      image,
+      description,
+      stock: parseInt(stock) || 0
+    };
+    
+    products.push(newProduct);
+    saveProducts(products);
+    await saveAndPushProducts(products);
+    
+    res.status(201).json({ success: true, message: 'Produk berhasil ditambahkan', product: newProduct });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// Update product
+app.put('/api/products/:id', requireDeveloper, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const { name, price, image, description, stock } = req.body;
+    
+    const products = loadProducts();
+    const productIndex = products.findIndex(p => p.id === productId);
+    
+    if (productIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    }
+    
+    if (name) products[productIndex].name = name;
+    if (price) products[productIndex].price = parseInt(price);
+    if (image) products[productIndex].image = image;
+    if (description) products[productIndex].description = description;
+    if (stock !== undefined) products[productIndex].stock = parseInt(stock);
+    
+    saveProducts(products);
+    await saveAndPushProducts(products);
+    
+    res.json({ success: true, message: 'Produk berhasil diupdate', product: products[productIndex] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// Delete product
+app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    
+    const products = loadProducts();
+    const productIndex = products.findIndex(p => p.id === productId);
+    
+    if (productIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    }
+    
+    const deletedProduct = products.splice(productIndex, 1)[0];
+    saveProducts(products);
+    await saveAndPushProducts(products);
+    
+    res.json({ success: true, message: 'Produk berhasil dihapus', deletedProduct });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
 });
 
 // Pre-create Developer Account
