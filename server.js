@@ -10,6 +10,7 @@ const USERS_FILE = path.join(__dirname, 'users.xlsx');
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 const POPULATION_FILE = path.join(__dirname, 'population.json');
 const APBDES_FILE = path.join(__dirname, 'apbdes.json');
+const TEAM_FILE = path.join(__dirname, 'team.json');
 
 // === GITHUB CONFIG ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -598,6 +599,109 @@ app.put('/api/apbdes', requireDeveloper, async (req, res) => {
     saveAPBDes(data);
     await pushToGitHub('apbdes.json', data);
     res.json({ success: true, message: 'Data APBDes berhasil diupdate' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ============================================
+// TEAM / WEB DESIGNER MANAGEMENT
+// ============================================
+
+function loadTeam() {
+  if (!fs.existsSync(TEAM_FILE)) {
+    const defaultTeam = [
+      {
+        id: 1,
+        name: "Muh. Rizky Ramadhan",
+        role: "Koordinator Desa & Founder Website",
+        photo: "fotokkn/rama.png",
+        instagram: "#"
+      },
+      {
+        id: 2,
+        name: "Sri Wulandari",
+        role: "Wakil Koordinator Desa",
+        photo: "",
+        instagram: "#"
+      },
+      {
+        id: 3,
+        name: "Nurul Yumni",
+        role: "Sekretaris",
+        photo: "",
+        instagram: "#"
+      }
+    ];
+    fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
+    return defaultTeam;
+  }
+  return JSON.parse(fs.readFileSync(TEAM_FILE, 'utf8'));
+}
+
+function saveTeam(data) {
+  fs.writeFileSync(TEAM_FILE, JSON.stringify(data, null, 2));
+  console.log('✅ Team data saved');
+}
+
+async function pushTeamToGitHub(data) {
+  if (!GITHUB_TOKEN) return;
+  
+  try {
+    const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
+    
+    let sha = '';
+    try {
+      const getRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      if (getRes.ok) {
+        sha = (await getRes.json()).sha;
+      }
+    } catch (e) {}
+    
+    await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update team.json: ${new Date().toISOString()}`,
+          content: content,
+          sha: sha || undefined
+        })
+      }
+    );
+    
+    console.log('✅ Team data pushed to GitHub');
+  } catch (err) {
+    console.log('❌ Push team error:', err.message);
+  }
+}
+
+// GET Team
+app.get('/api/team', (req, res) => {
+  const team = loadTeam();
+  res.json({ success: true, team });
+});
+
+// UPDATE Team
+app.put('/api/team', requireDeveloper, async (req, res) => {
+  try {
+    const teamData = req.body;
+    saveTeam(teamData);
+    await pushTeamToGitHub(teamData);
+    res.json({ success: true, message: 'Data tim berhasil diupdate' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
