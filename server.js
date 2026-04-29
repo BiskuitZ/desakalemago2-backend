@@ -8,13 +8,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 
-// GitHub Config
+// === GITHUB CONFIG (PASTIKAN SUDAH DISET DI RAILWAY) ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
-const GITHUB_OWNER = 'biskuitz';
-const GITHUB_REPO = 'desakalemago2';
+const GITHUB_OWNER = process.env.GITHUB_OWNER || 'biskuitz';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'desakalemago2';
 const GITHUB_PATH = 'backend/users.xlsx';
 
-// Fungsi baca users dari Excel
+console.log('🔧 GitHub Config:');
+console.log('   Owner:', GITHUB_OWNER);
+console.log('   Repo:', GITHUB_REPO);
+console.log('   Path:', GITHUB_PATH);
+console.log('   Token exists:', GITHUB_TOKEN ? 'YES' : 'NO');
+
 function readUsers() {
   if (!fs.existsSync(USERS_FILE)) {
     const defaultUsers = [
@@ -31,65 +36,67 @@ function readUsers() {
   return XLSX.utils.sheet_to_json(ws);
 }
 
-// Fungsi simpan ke Excel + Update ke GitHub (PAKAI NATIVE FETCH)
 async function saveUsers(users) {
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
   XLSX.writeFile(wb, USERS_FILE);
+  console.log('✅ Excel saved locally');
 
-  console.log('✅ Excel file saved locally');
+  // === UPDATE KE GITHUB ===
+  if (!GITHUB_TOKEN) {
+    console.log('⚠️ GITHUB_TOKEN tidak ditemukan! Data hanya tersimpan di Railway.');
+    return;
+  }
 
-  // === UPDATE KE GITHUB (NATIVE FETCH) ===
-  if (GITHUB_TOKEN) {
+  try {
+    const fileContent = fs.readFileSync(USERS_FILE);
+    const contentBase64 = fileContent.toString('base64');
+
+    // Dapatkan SHA
+    let sha = '';
     try {
-      const fileContent = fs.readFileSync(USERS_FILE);
-      const contentBase64 = fileContent.toString('base64');
-
-      // Dapatkan SHA file lama
-      let sha = '';
-      try {
-        const getFileRes = await fetch(
-          `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
-          {
-            headers: {
-              'Authorization': `token ${GITHUB_TOKEN}`,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          }
-        );
-        if (getFileRes.ok) {
-          const fileData = await getFileRes.json();
-          sha = fileData.sha;
-        }
-      } catch (e) {}
-
-      // Update file di GitHub
-      const updateRes = await fetch(
+      const getRes = await fetch(
         `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
         {
-          method: 'PUT',
           headers: {
             'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            message: `Auto-update: New user registered at ${new Date().toISOString()}`,
-            content: contentBase64,
-            sha: sha || undefined
-          })
+            'Accept': 'application/vnd.github.v3+json'
+          }
         }
       );
-
-      if (updateRes.ok) {
-        console.log('✅ Excel file updated on GitHub!');
-      } else {
-        console.log('⚠️ GitHub update failed');
+      if (getRes.ok) {
+        const data = await getRes.json();
+        sha = data.sha;
       }
-    } catch (err) {
-      console.log('⚠️ GitHub API error:', err.message);
+    } catch (e) {}
+
+    // Update file
+    const updateRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Auto-update: New user registered - ${new Date().toISOString()}`,
+          content: contentBase64,
+          sha: sha || undefined
+        })
+      }
+    );
+
+    if (updateRes.ok) {
+      console.log('✅ SUCCESS: File users.xlsx updated on GitHub!');
+    } else {
+      const errorText = await updateRes.text();
+      console.log('❌ GitHub update FAILED:', errorText);
     }
+  } catch (err) {
+    console.log('❌ GitHub API ERROR:', err.message);
   }
 }
 
