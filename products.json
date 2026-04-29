@@ -6,5 +6,13 @@
     "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400",
     "description": "Kopi robusta premium dari Desa Kalemago, 250gr",
     "stock": 50
+  },
+  {
+    "id": 2,
+    "name": "Pisang Raja",
+    "price": 15000,
+    "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400",
+    "description": "Enak",
+    "stock": 50
   }
 ]
