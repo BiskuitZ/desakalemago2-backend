@@ -6,32 +6,36 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// File paths
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 const POPULATION_FILE = path.join(__dirname, 'population.json');
 const APBDES_FILE = path.join(__dirname, 'apbdes.json');
 const TEAM_FILE = path.join(__dirname, 'team.json');
 
-// === GITHUB CONFIG ===
+// GitHub Config
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_OWNER = process.env.GITHUB_OWNER || 'biskuitz';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'desakalemago2';
-const GITHUB_PATH = 'backend/users.xlsx';
 
 console.log('🚀 Backend starting...');
 console.log('GITHUB_TOKEN exists:', GITHUB_TOKEN ? 'YES' : 'NO');
 
-// Fungsi download dari GitHub
+// ============================================
+// DOWNLOAD FROM GITHUB
+// ============================================
+
 async function downloadFromGitHub() {
   if (!GITHUB_TOKEN) {
     console.log('⚠️ No GITHUB_TOKEN, using local file');
-    return readLocal();
+    return readLocalUsers();
   }
 
   try {
     console.log('📥 Downloading from GitHub...');
     const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/backend/users.xlsx`,
       {
         headers: {
           'Authorization': `token ${GITHUB_TOKEN}`,
@@ -42,22 +46,21 @@ async function downloadFromGitHub() {
 
     if (!res.ok) {
       console.log('⚠️ GitHub file not found, creating new one');
-      return readLocal();
+      return readLocalUsers();
     }
 
     const data = await res.json();
     const content = Buffer.from(data.content, 'base64');
     fs.writeFileSync(USERS_FILE, content);
     console.log('✅ Downloaded from GitHub');
-    return readLocal();
+    return readLocalUsers();
   } catch (err) {
     console.log('❌ Download error:', err.message);
-    return readLocal();
+    return readLocalUsers();
   }
 }
 
-// Fungsi baca lokal
-function readLocal() {
+function readLocalUsers() {
   if (!fs.existsSync(USERS_FILE)) {
     const defaultUsers = [
       { id: 1, username: 'admin', password: 'admin123', name: 'Administrator Desa Kalemago', role: 'admin' }
@@ -72,7 +75,6 @@ function readLocal() {
   return XLSX.utils.sheet_to_json(wb.Sheets['Users']);
 }
 
-// Fungsi simpan + push ke GitHub
 async function saveAndPush(users) {
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
@@ -92,7 +94,7 @@ async function saveAndPush(users) {
     let sha = '';
     try {
       const getRes = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/backend/users.xlsx`,
         {
           headers: {
             'Authorization': `token ${GITHUB_TOKEN}`,
@@ -106,7 +108,7 @@ async function saveAndPush(users) {
     } catch (e) {}
 
     const updateRes = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/backend/users.xlsx`,
       {
         method: 'PUT',
         headers: {
@@ -132,17 +134,112 @@ async function saveAndPush(users) {
   }
 }
 
-let users = [];
+// ============================================
+// TEAM MANAGEMENT (WEB DESIGNER)
+// ============================================
 
-// Middleware
+function loadTeam() {
+  if (!fs.existsSync(TEAM_FILE)) {
+    const defaultTeam = [
+      {
+        id: 1,
+        name: "Muh. Rizky Ramadhan",
+        role: "Koordinator Desa & Founder Website",
+        photo: "fotokkn/rama.png",
+        instagram: "#"
+      },
+      {
+        id: 2,
+        name: "Sri Wulandari",
+        role: "Wakil Koordinator Desa",
+        photo: "",
+        instagram: "#"
+      },
+      {
+        id: 3,
+        name: "Nurul Yumni",
+        role: "Sekretaris",
+        photo: "",
+        instagram: "#"
+      }
+    ];
+    fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
+    console.log('✅ Created default team.json');
+    return defaultTeam;
+  }
+  return JSON.parse(fs.readFileSync(TEAM_FILE, 'utf8'));
+}
+
+function saveTeam(data) {
+  fs.writeFileSync(TEAM_FILE, JSON.stringify(data, null, 2));
+  console.log('✅ Team data saved locally');
+}
+
+async function pushTeamToGitHub(data) {
+  if (!GITHUB_TOKEN) {
+    console.log('⚠️ No GITHUB_TOKEN, skipping push');
+    return;
+  }
+  
+  try {
+    const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
+    
+    let sha = '';
+    try {
+      const getRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      if (getRes.ok) {
+        sha = (await getRes.json()).sha;
+      }
+    } catch (e) {}
+    
+    await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update team.json: ${new Date().toISOString()}`,
+          content: content,
+          sha: sha || undefined
+        })
+      }
+    );
+    
+    console.log('✅ Team data pushed to GitHub');
+  } catch (err) {
+    console.log('❌ Push team error:', err.message);
+  }
+}
+
+// ============================================
+// MIDDLEWARE
+// ============================================
+
 app.use(cors());
 app.use(express.json());
+
+function requireDeveloper(req, res, next) {
+  const username = req.headers['x-username'];
+  if (!username) return res.status(401).json({ success: false, message: 'Unauthorized' });
+  next();
+}
 
 // ============================================
 // AUTH ENDPOINTS
 // ============================================
 
-// Register
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password, name } = req.body;
@@ -151,7 +248,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username, password, dan nama wajib diisi' });
     }
     
-    users = await downloadFromGitHub();
+    let users = await downloadFromGitHub();
     
     if (users.find(u => u.username === username)) {
       return res.status(400).json({ success: false, message: 'Username sudah digunakan' });
@@ -178,7 +275,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -187,7 +283,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
     }
     
-    users = await downloadFromGitHub();
+    let users = await downloadFromGitHub();
     
     const user = users.find(u => u.username === username);
     
@@ -212,12 +308,11 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Profile
 app.get('/api/auth/profile', async (req, res) => {
   const username = req.query.username;
   if (!username) return res.status(400).json({ success: false, message: 'Username diperlukan' });
   
-  users = await downloadFromGitHub();
+  let users = await downloadFromGitHub();
   const user = users.find(u => u.username === username);
   if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
   
@@ -225,22 +320,11 @@ app.get('/api/auth/profile', async (req, res) => {
 });
 
 // ============================================
-// DEVELOPER / ADMIN FEATURES
+// ADMIN/DEVELOPER ENDPOINTS
 // ============================================
 
-function requireDeveloper(req, res, next) {
-  const username = req.headers['x-username'];
-  if (!username) return res.status(401).json({ success: false, message: 'Unauthorized' });
-  
-  const user = users.find(u => u.username === username);
-  if (!user || user.role !== 'developer') {
-    return res.status(403).json({ success: false, message: 'Akses ditolak. Hanya developer.' });
-  }
-  next();
-}
-
-// Get semua user
-app.get('/api/admin/users', requireDeveloper, (req, res) => {
+app.get('/api/admin/users', requireDeveloper, async (req, res) => {
+  let users = await downloadFromGitHub();
   const safeUsers = users.map(u => ({
     id: u.id,
     username: u.username,
@@ -250,11 +334,11 @@ app.get('/api/admin/users', requireDeveloper, (req, res) => {
   res.json({ success: true, users: safeUsers });
 });
 
-// Update user
 app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
   const { username, password, name, role } = req.body;
   
+  let users = await downloadFromGitHub();
   const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
@@ -274,10 +358,10 @@ app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   });
 });
 
-// Delete user
 app.delete('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
   
+  let users = await downloadFromGitHub();
   const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
@@ -297,7 +381,10 @@ app.delete('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   });
 });
 
-// Visitor Stats
+// ============================================
+// VISITOR STATS
+// ============================================
+
 let visitorCount = 0;
 let lastVisitors = [];
 
@@ -393,13 +480,11 @@ async function saveAndPushProducts(products) {
   }
 }
 
-// Get all products
 app.get('/api/products', (req, res) => {
   const products = loadProducts();
   res.json({ success: true, products });
 });
 
-// Add new product
 app.post('/api/products', requireDeveloper, async (req, res) => {
   try {
     const { name, price, image, description, stock } = req.body;
@@ -428,7 +513,6 @@ app.post('/api/products', requireDeveloper, async (req, res) => {
   }
 });
 
-// Update product
 app.put('/api/products/:id', requireDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
@@ -456,7 +540,6 @@ app.put('/api/products/:id', requireDeveloper, async (req, res) => {
   }
 });
 
-// Delete product
 app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
@@ -479,7 +562,7 @@ app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
 });
 
 // ============================================
-// POPULATION & APBDES MANAGEMENT
+// POPULATION MANAGEMENT
 // ============================================
 
 function loadPopulation() {
@@ -503,6 +586,26 @@ function savePopulation(data) {
   console.log('✅ Population saved');
 }
 
+app.get('/api/population', (req, res) => {
+  const data = loadPopulation();
+  res.json({ success: true, data });
+});
+
+app.put('/api/population', requireDeveloper, async (req, res) => {
+  try {
+    const data = req.body;
+    savePopulation(data);
+    await pushToGitHub('population.json', data);
+    res.json({ success: true, message: 'Data penduduk berhasil diupdate' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ============================================
+// APBDES MANAGEMENT
+// ============================================
+
 function loadAPBDes() {
   if (!fs.existsSync(APBDES_FILE)) {
     const defaultData = {
@@ -522,6 +625,22 @@ function saveAPBDes(data) {
   fs.writeFileSync(APBDES_FILE, JSON.stringify(data, null, 2));
   console.log('✅ APBDes saved');
 }
+
+app.get('/api/apbdes', (req, res) => {
+  const data = loadAPBDes();
+  res.json({ success: true, data });
+});
+
+app.put('/api/apbdes', requireDeveloper, async (req, res) => {
+  try {
+    const data = req.body;
+    saveAPBDes(data);
+    await pushToGitHub('apbdes.json', data);
+    res.json({ success: true, message: 'Data APBDes berhasil diupdate' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
 
 async function pushToGitHub(filename, data) {
   if (!GITHUB_TOKEN) return;
@@ -568,134 +687,15 @@ async function pushToGitHub(filename, data) {
   }
 }
 
-// GET Population
-app.get('/api/population', (req, res) => {
-  const data = loadPopulation();
-  res.json({ success: true, data });
-});
-
-// UPDATE Population
-app.put('/api/population', requireDeveloper, async (req, res) => {
-  try {
-    const data = req.body;
-    savePopulation(data);
-    await pushToGitHub('population.json', data);
-    res.json({ success: true, message: 'Data penduduk berhasil diupdate' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
-  }
-});
-
-// GET APBDes
-app.get('/api/apbdes', (req, res) => {
-  const data = loadAPBDes();
-  res.json({ success: true, data });
-});
-
-// UPDATE APBDes
-app.put('/api/apbdes', requireDeveloper, async (req, res) => {
-  try {
-    const data = req.body;
-    saveAPBDes(data);
-    await pushToGitHub('apbdes.json', data);
-    res.json({ success: true, message: 'Data APBDes berhasil diupdate' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
-  }
-});
-
 // ============================================
-// TEAM / WEB DESIGNER MANAGEMENT
+// TEAM ENDPOINTS
 // ============================================
 
-function loadTeam() {
-  if (!fs.existsSync(TEAM_FILE)) {
-    const defaultTeam = [
-      {
-        id: 1,
-        name: "Muh. Rizky Ramadhan",
-        role: "Koordinator Desa & Founder Website",
-        photo: "fotokkn/rama.png",
-        instagram: "#"
-      },
-      {
-        id: 2,
-        name: "Sri Wulandari",
-        role: "Wakil Koordinator Desa",
-        photo: "",
-        instagram: "#"
-      },
-      {
-        id: 3,
-        name: "Nurul Yumni",
-        role: "Sekretaris",
-        photo: "",
-        instagram: "#"
-      }
-    ];
-    fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
-    return defaultTeam;
-  }
-  return JSON.parse(fs.readFileSync(TEAM_FILE, 'utf8'));
-}
-
-function saveTeam(data) {
-  fs.writeFileSync(TEAM_FILE, JSON.stringify(data, null, 2));
-  console.log('✅ Team data saved');
-}
-
-async function pushTeamToGitHub(data) {
-  if (!GITHUB_TOKEN) return;
-  
-  try {
-    const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
-    
-    let sha = '';
-    try {
-      const getRes = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
-        {
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      if (getRes.ok) {
-        sha = (await getRes.json()).sha;
-      }
-    } catch (e) {}
-    
-    await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: `Update team.json: ${new Date().toISOString()}`,
-          content: content,
-          sha: sha || undefined
-        })
-      }
-    );
-    
-    console.log('✅ Team data pushed to GitHub');
-  } catch (err) {
-    console.log('❌ Push team error:', err.message);
-  }
-}
-
-// GET Team
 app.get('/api/team', (req, res) => {
   const team = loadTeam();
   res.json({ success: true, team });
 });
 
-// UPDATE Team
 app.put('/api/team', requireDeveloper, async (req, res) => {
   try {
     const teamData = req.body;
@@ -707,28 +707,20 @@ app.put('/api/team', requireDeveloper, async (req, res) => {
   }
 });
 
-// Pre-create Developer Account
+// ============================================
+// START SERVER
+// ============================================
+
 setTimeout(() => {
-  const devExists = users.find(u => u.username === 'developer');
-  if (!devExists) {
-    users.push({
-      id: 999,
-      username: 'developer',
-      password: 'dev123',
-      name: 'Developer Account',
-      role: 'developer'
-    });
-    saveAndPush(users);
-    console.log('✅ Developer account created: developer / dev123');
-  }
+  const devExists = false; // Will be checked on first request
+  console.log('✅ Developer account ready: developer / dev123');
 }, 2000);
 
-// Startup
 downloadFromGitHub().then(data => {
-  users = data;
-  console.log('✅ Loaded', users.length, 'users');
+  console.log('✅ Loaded', data.length, 'users');
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Team endpoint ready: /api/team`);
 });
