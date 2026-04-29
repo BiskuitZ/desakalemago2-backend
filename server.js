@@ -14,17 +14,20 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER || 'biskuitz';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'desakalemago2';
 const GITHUB_PATH = 'backend/users.xlsx';
 
-console.log('🚀 Starting backend with GitHub sync...');
+console.log('🚀 Backend starting...');
+console.log('GITHUB_TOKEN exists:', GITHUB_TOKEN ? 'YES' : 'NO');
+console.log('GITHUB_OWNER:', GITHUB_OWNER);
+console.log('GITHUB_REPO:', GITHUB_REPO);
 
-// Fungsi download users dari GitHub
-async function downloadUsersFromGitHub() {
+// Fungsi download dari GitHub
+async function downloadFromGitHub() {
   if (!GITHUB_TOKEN) {
-    console.log('⚠️ GITHUB_TOKEN tidak ditemukan, pakai data lokal');
-    return readUsersLocal();
+    console.log('⚠️ No GITHUB_TOKEN, using local file');
+    return readLocal();
   }
 
   try {
-    console.log('📥 Downloading users from GitHub...');
+    console.log('📥 Downloading from GitHub...');
     const res = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
       {
@@ -36,23 +39,23 @@ async function downloadUsersFromGitHub() {
     );
 
     if (!res.ok) {
-      console.log('⚠️ GitHub file not found, using local data');
-      return readUsersLocal();
+      console.log('⚠️ GitHub file not found, creating new one');
+      return readLocal();
     }
 
     const data = await res.json();
     const content = Buffer.from(data.content, 'base64');
     fs.writeFileSync(USERS_FILE, content);
-    console.log('✅ Downloaded latest users from GitHub');
-    return readUsersLocal();
+    console.log('✅ Downloaded from GitHub');
+    return readLocal();
   } catch (err) {
-    console.log('❌ Download failed:', err.message);
-    return readUsersLocal();
+    console.log('❌ Download error:', err.message);
+    return readLocal();
   }
 }
 
-// Fungsi baca users lokal
-function readUsersLocal() {
+// Fungsi baca lokal
+function readLocal() {
   if (!fs.existsSync(USERS_FILE)) {
     const defaultUsers = [
       { id: 1, username: 'admin', password: 'admin123', name: 'Administrator Desa Kalemago', role: 'admin' }
@@ -64,12 +67,12 @@ function readUsersLocal() {
     return defaultUsers;
   }
   const wb = XLSX.readFile(USERS_FILE);
-  const ws = wb.Sheets['Users'];
-  return XLSX.utils.sheet_to_json(ws);
+  return XLSX.utils.sheet_to_json(wb.Sheets['Users']);
 }
 
 // Fungsi simpan + push ke GitHub
-async function saveUsers(users) {
+async function saveAndPush(users) {
+  // Simpan lokal
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
@@ -77,9 +80,13 @@ async function saveUsers(users) {
   console.log('✅ Saved locally');
 
   // Push ke GitHub
-  if (!GITHUB_TOKEN) return;
+  if (!GITHUB_TOKEN) {
+    console.log('⚠️ No GITHUB_TOKEN, skipping push');
+    return;
+  }
 
   try {
+    console.log('📤 Pushing to GitHub...');
     const content = fs.readFileSync(USERS_FILE).toString('base64');
     
     let sha = '';
@@ -108,7 +115,7 @@ async function saveUsers(users) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: `Auto-update: ${new Date().toISOString()}`,
+          message: `Register: ${new Date().toISOString()}`,
           content: content,
           sha: sha || undefined
         })
@@ -116,12 +123,13 @@ async function saveUsers(users) {
     );
 
     if (updateRes.ok) {
-      console.log('✅ Pushed to GitHub!');
+      console.log('✅ SUCCESS: Pushed to GitHub!');
     } else {
-      console.log('❌ Push failed');
+      const error = await updateRes.text();
+      console.log('❌ Push FAILED:', error);
     }
   } catch (err) {
-    console.log('❌ Push error:', err.message);
+    console.log('❌ Push ERROR:', err.message);
   }
 }
 
@@ -140,7 +148,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username, password, dan nama wajib diisi' });
     }
     
-    users = await downloadUsersFromGitHub();
+    users = await downloadFromGitHub();
     
     if (users.find(u => u.username === username)) {
       return res.status(400).json({ success: false, message: 'Username sudah digunakan' });
@@ -155,7 +163,9 @@ app.post('/api/auth/register', async (req, res) => {
     };
     
     users.push(newUser);
-    await saveUsers(users);
+    await saveAndPush(users);
+    
+    console.log('✅ New user registered:', username);
     
     res.status(201).json({
       success: true,
@@ -163,11 +173,12 @@ app.post('/api/auth/register', async (req, res) => {
       user: { id: newUser.id, username: newUser.username, name: newUser.name, role: newUser.role }
     });
   } catch (error) {
+    console.error('❌ Register error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
 });
 
-// Login (dengan sinkronisasi)
+// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -176,8 +187,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
     }
     
-    // Download data terbaru dari GitHub
-    users = await downloadUsersFromGitHub();
+    users = await downloadFromGitHub();
     
     const user = users.find(u => u.username === username);
     
@@ -207,17 +217,17 @@ app.get('/api/auth/profile', async (req, res) => {
   const username = req.query.username;
   if (!username) return res.status(400).json({ success: false, message: 'Username diperlukan' });
   
-  users = await downloadUsersFromGitHub();
+  users = await downloadFromGitHub();
   const user = users.find(u => u.username === username);
   if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
   
   res.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } });
 });
 
-// Download users saat startup
-downloadUsersFromGitHub().then(data => {
+// Startup
+downloadFromGitHub().then(data => {
   users = data;
-  console.log('✅ Loaded', users.length, 'users from GitHub');
+  console.log('✅ Loaded', users.length, 'users');
 });
 
 app.listen(PORT, () => {
