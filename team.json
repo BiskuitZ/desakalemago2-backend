@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Muh. Rizky",
+    "role": "Koordinator Desa & Founder Website",
+    "photo": "fotokkn/rama.png",
+    "instagram": "#"
+  },
+  {
+    "id": 2,
+    "name": "Sri Wulandari",
+    "role": "Wakil Koordinator Desa",
+    "photo": "",
+    "instagram": "#"
+  },
+  {
+    "id": 3,
+    "name": "Nurul Yumni",
+    "role": "Sekretaris",
+    "photo": "",
+    "instagram": "#"
+  }
+]
