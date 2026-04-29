@@ -8,18 +8,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 
-// === GITHUB CONFIG (PASTIKAN SUDAH DISET DI RAILWAY) ===
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
-const GITHUB_OWNER = process.env.GITHUB_OWNER || 'biskuitz';
-const GITHUB_REPO = process.env.GITHUB_REPO || 'desakalemago2';
-const GITHUB_PATH = 'backend/users.xlsx';
+console.log('🚀 Starting backend server...');
 
-console.log('🔧 GitHub Config:');
-console.log('   Owner:', GITHUB_OWNER);
-console.log('   Repo:', GITHUB_REPO);
-console.log('   Path:', GITHUB_PATH);
-console.log('   Token exists:', GITHUB_TOKEN ? 'YES' : 'NO');
-
+// Fungsi baca users
 function readUsers() {
   if (!fs.existsSync(USERS_FILE)) {
     const defaultUsers = [
@@ -29,6 +20,7 @@ function readUsers() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Users');
     XLSX.writeFile(wb, USERS_FILE);
+    console.log('✅ Created default users.xlsx');
     return defaultUsers;
   }
   const wb = XLSX.readFile(USERS_FILE);
@@ -36,78 +28,24 @@ function readUsers() {
   return XLSX.utils.sheet_to_json(ws);
 }
 
-async function saveUsers(users) {
+// Fungsi simpan users (SIMPLE - tanpa GitHub dulu)
+function saveUsers(users) {
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
   XLSX.writeFile(wb, USERS_FILE);
-  console.log('✅ Excel saved locally');
-
-  // === UPDATE KE GITHUB ===
-  if (!GITHUB_TOKEN) {
-    console.log('⚠️ GITHUB_TOKEN tidak ditemukan! Data hanya tersimpan di Railway.');
-    return;
-  }
-
-  try {
-    const fileContent = fs.readFileSync(USERS_FILE);
-    const contentBase64 = fileContent.toString('base64');
-
-    // Dapatkan SHA
-    let sha = '';
-    try {
-      const getRes = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
-        {
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      if (getRes.ok) {
-        const data = await getRes.json();
-        sha = data.sha;
-      }
-    } catch (e) {}
-
-    // Update file
-    const updateRes = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: `Auto-update: New user registered - ${new Date().toISOString()}`,
-          content: contentBase64,
-          sha: sha || undefined
-        })
-      }
-    );
-
-    if (updateRes.ok) {
-      console.log('✅ SUCCESS: File users.xlsx updated on GitHub!');
-    } else {
-      const errorText = await updateRes.text();
-      console.log('❌ GitHub update FAILED:', errorText);
-    }
-  } catch (err) {
-    console.log('❌ GitHub API ERROR:', err.message);
-  }
+  console.log('✅ Users saved to Excel');
 }
 
 let users = readUsers();
+console.log('✅ Loaded', users.length, 'users');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', (req, res) => {
   try {
     const { username, password, name } = req.body;
     
@@ -130,7 +68,9 @@ app.post('/api/auth/register', async (req, res) => {
     };
     
     users.push(newUser);
-    await saveUsers(users);
+    saveUsers(users);
+    
+    console.log('✅ New user registered:', username);
     
     res.status(201).json({
       success: true,
@@ -138,6 +78,7 @@ app.post('/api/auth/register', async (req, res) => {
       user: { id: newUser.id, username: newUser.username, name: newUser.name, role: newUser.role }
     });
   } catch (error) {
+    console.error('❌ Register error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
 });
@@ -180,4 +121,6 @@ app.get('/api/auth/profile', (req, res) => {
   res.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } });
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
