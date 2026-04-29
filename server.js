@@ -3,7 +3,6 @@ const cors = require('cors');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch'); // Untuk GitHub API
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,9 +10,9 @@ const USERS_FILE = path.join(__dirname, 'users.xlsx');
 
 // GitHub Config
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
-const GITHUB_OWNER = 'biskuitz';           // Ganti dengan username GitHub Anda
-const GITHUB_REPO = 'desakalemago2';       // Nama repo Anda
-const GITHUB_PATH = 'backend/users.xlsx';  // Path file di repo
+const GITHUB_OWNER = 'biskuitz';
+const GITHUB_REPO = 'desakalemago2';
+const GITHUB_PATH = 'backend/users.xlsx';
 
 // Fungsi baca users dari Excel
 function readUsers() {
@@ -32,7 +31,7 @@ function readUsers() {
   return XLSX.utils.sheet_to_json(ws);
 }
 
-// Fungsi simpan ke Excel + Update ke GitHub
+// Fungsi simpan ke Excel + Update ke GitHub (PAKAI NATIVE FETCH)
 async function saveUsers(users) {
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
@@ -41,29 +40,29 @@ async function saveUsers(users) {
 
   console.log('✅ Excel file saved locally');
 
-  // === UPDATE KE GITHUB ===
+  // === UPDATE KE GITHUB (NATIVE FETCH) ===
   if (GITHUB_TOKEN) {
     try {
-      // Baca file yang baru disimpan
       const fileContent = fs.readFileSync(USERS_FILE);
       const contentBase64 = fileContent.toString('base64');
 
-      // Dapatkan SHA file yang lama (diperlukan untuk update)
-      const getFileRes = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
-        {
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-
+      // Dapatkan SHA file lama
       let sha = '';
-      if (getFileRes.ok) {
-        const fileData = await getFileRes.json();
-        sha = fileData.sha;
-      }
+      try {
+        const getFileRes = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`,
+          {
+            headers: {
+              'Authorization': `token ${GITHUB_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+        if (getFileRes.ok) {
+          const fileData = await getFileRes.json();
+          sha = fileData.sha;
+        }
+      } catch (e) {}
 
       // Update file di GitHub
       const updateRes = await fetch(
@@ -86,8 +85,7 @@ async function saveUsers(users) {
       if (updateRes.ok) {
         console.log('✅ Excel file updated on GitHub!');
       } else {
-        const error = await updateRes.text();
-        console.log('⚠️ GitHub update failed:', error);
+        console.log('⚠️ GitHub update failed');
       }
     } catch (err) {
       console.log('⚠️ GitHub API error:', err.message);
