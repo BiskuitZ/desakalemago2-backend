@@ -8,6 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
+const POPULATION_FILE = path.join(__dirname, 'population.json');
+const APBDES_FILE = path.join(__dirname, 'apbdes.json');
 
 // === GITHUB CONFIG ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -470,6 +472,132 @@ app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
     await saveAndPushProducts(products);
     
     res.json({ success: true, message: 'Produk berhasil dihapus', deletedProduct });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ============================================
+// POPULATION & APBDES MANAGEMENT
+// ============================================
+
+function loadPopulation() {
+  if (!fs.existsSync(POPULATION_FILE)) {
+    const defaultData = {
+      total: 1247,
+      male: 514,
+      female: 485,
+      families: 312,
+      rt: 8,
+      rw: 3
+    };
+    fs.writeFileSync(POPULATION_FILE, JSON.stringify(defaultData, null, 2));
+    return defaultData;
+  }
+  return JSON.parse(fs.readFileSync(POPULATION_FILE, 'utf8'));
+}
+
+function savePopulation(data) {
+  fs.writeFileSync(POPULATION_FILE, JSON.stringify(data, null, 2));
+  console.log('✅ Population saved');
+}
+
+function loadAPBDes() {
+  if (!fs.existsSync(APBDES_FILE)) {
+    const defaultData = {
+      pendapatan: 1250000000,
+      belanja: 1245000000,
+      belanjaPegawai: 450000000,
+      belanjaBarang: 380000000,
+      belanjaModal: 415000000
+    };
+    fs.writeFileSync(APBDES_FILE, JSON.stringify(defaultData, null, 2));
+    return defaultData;
+  }
+  return JSON.parse(fs.readFileSync(APBDES_FILE, 'utf8'));
+}
+
+function saveAPBDes(data) {
+  fs.writeFileSync(APBDES_FILE, JSON.stringify(data, null, 2));
+  console.log('✅ APBDes saved');
+}
+
+async function pushToGitHub(filename, data) {
+  if (!GITHUB_TOKEN) return;
+  
+  try {
+    const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
+    
+    let sha = '';
+    try {
+      const getRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filename}`,
+        {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      if (getRes.ok) {
+        sha = (await getRes.json()).sha;
+      }
+    } catch (e) {}
+    
+    await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filename}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Update ${filename}: ${new Date().toISOString()}`,
+          content: content,
+          sha: sha || undefined
+        })
+      }
+    );
+    
+    console.log(`✅ ${filename} pushed to GitHub`);
+  } catch (err) {
+    console.log(`❌ Push ${filename} error:`, err.message);
+  }
+}
+
+// GET Population
+app.get('/api/population', (req, res) => {
+  const data = loadPopulation();
+  res.json({ success: true, data });
+});
+
+// UPDATE Population
+app.put('/api/population', requireDeveloper, async (req, res) => {
+  try {
+    const data = req.body;
+    savePopulation(data);
+    await pushToGitHub('population.json', data);
+    res.json({ success: true, message: 'Data penduduk berhasil diupdate' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
+  }
+});
+
+// GET APBDes
+app.get('/api/apbdes', (req, res) => {
+  const data = loadAPBDes();
+  res.json({ success: true, data });
+});
+
+// UPDATE APBDes
+app.put('/api/apbdes', requireDeveloper, async (req, res) => {
+  try {
+    const data = req.body;
+    saveAPBDes(data);
+    await pushToGitHub('apbdes.json', data);
+    res.json({ success: true, message: 'Data APBDes berhasil diupdate' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
