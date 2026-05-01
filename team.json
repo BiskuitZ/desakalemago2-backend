@@ -21,7 +21,8 @@
     "role": "Sekretaris",
     "photo": "",
     "instagram": "#",
-    "parentId": 1
+    "parentId": 2,
+    "color": "#10b981"
   },
   {
     "id": 4,
