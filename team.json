@@ -43,5 +43,23 @@
     "instagram": "#",
     "parentId": 1777729940927,
     "color": "#10b981"
+  },
+  {
+    "id": 1777731056457,
+    "name": "Arifin",
+    "role": "Perlengkapan",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777730933210,
+    "color": "#10b981"
+  },
+  {
+    "id": 1777731075081,
+    "name": "Heldrison Karau",
+    "role": "Perlengkapan",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777730933210,
+    "color": "#10b981"
   }
 ]
