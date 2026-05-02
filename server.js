@@ -293,16 +293,6 @@ function loadTeam() {
     console.error('Error loading team.json:', error);
     return [];
   }
-        role: "Sekretaris",
-        photo: "",
-        instagram: "#"
-      }
-    ];
-    fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
-    console.log('✅ Created default team.json');
-    return defaultTeam;
-  }
-  return JSON.parse(fs.readFileSync(TEAM_FILE, 'utf8'));
 }
 
 function saveTeam(data) {
