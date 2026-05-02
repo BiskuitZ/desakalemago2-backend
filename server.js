@@ -53,7 +53,13 @@ app.use(generalLimiter);
 
 // 3. CORS - More Secure Configuration
 app.use(cors({
-  origin: ['https://biskuitz.github.io', 'http://localhost:3000', 'http://localhost:5500'],
+  origin: [
+    'https://biskuitz.github.io', 
+    'https://biskuitz.github.io/desakalemago2',
+    'http://localhost:3000', 
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-username'],
   credentials: true
@@ -347,7 +353,7 @@ async function pushTeamToGitHub(data) {
 // MIDDLEWARE
 // ============================================
 
-app.use(cors());
+// Old CORS removed - using enhanced version above
 app.use(express.json());
 
 function requireDeveloper(req, res, next) {
