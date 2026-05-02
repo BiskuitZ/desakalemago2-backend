@@ -1,11 +1,12 @@
 [
   {
     "id": 1,
-    "name": "Feliks Laeka",
+    "name": "Mohamad Zikron",
     "role": "Founder & Koordinator Website",
     "photo": "fotokkn/rama.png",
     "instagram": "#",
-    "parentId": null
+    "parentId": null,
+    "color": "#10b981"
   },
   {
     "id": 2,
