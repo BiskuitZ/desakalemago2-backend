@@ -25,5 +25,23 @@
     "instagram": "#",
     "parentId": 1777729859432,
     "color": "#10b981"
+  },
+  {
+    "id": 1777731008849,
+    "name": "Feliks Laeka",
+    "role": "Humas & Founder Website",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777729940927,
+    "color": "#10b981"
+  },
+  {
+    "id": 1777731036169,
+    "name": "Gita Alifya Nusi",
+    "role": "Acara",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777729940927,
+    "color": "#10b981"
   }
 ]
