@@ -7,6 +7,76 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============================================
+// SECURITY MIDDLEWARE (Anti-DDoS & Cyber Protection)
+// ============================================
+
+// 1. Helmet - Security Headers
+const helmet = require('helmet');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://desakalemago2-backend-production.up.railway.app"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+// 2. Rate Limiting - Prevent Brute Force & DDoS
+const rateLimit = require('express-rate-limit');
+
+// General API rate limit (100 requests per 15 minutes)
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { success: false, message: 'Terlalu banyak permintaan. Coba lagi dalam 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict rate limit for login (5 attempts per 15 minutes)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Terlalu banyak percobaan login. Akun Anda diblokir sementara 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true
+});
+
+// Apply general limiter to all routes
+app.use(generalLimiter);
+
+// 3. CORS - More Secure Configuration
+app.use(cors({
+  origin: ['https://biskuitz.github.io', 'http://localhost:3000', 'http://localhost:5500'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-username'],
+  credentials: true
+}));
+
+// 4. Body Parser with Size Limit (Prevent large payload attacks)
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+console.log('🛡️ Security middleware loaded: Helmet + Rate Limiting + Secure CORS');
+
+// 5. Simple Input Sanitization Helper
+function sanitizeInput(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;')
+    .trim();
+}
+
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
@@ -240,7 +310,7 @@ function requireDeveloper(req, res, next) {
 // AUTH ENDPOINTS
 // ============================================
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', loginLimiter, async (req, res) => {
   try {
     const { username, password, name } = req.body;
     
@@ -275,7 +345,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     
