@@ -11,7 +11,23 @@ const PORT = process.env.PORT || 3000;
 // SECURITY MIDDLEWARE (Anti-DDoS & Cyber Protection)
 // ============================================
 
-// 1. Helmet - Security Headers
+// IMPORTANT: CORS must be FIRST before Helmet and other middlewares
+app.use(cors({
+  origin: [
+    'https://biskuitz.github.io', 
+    'https://biskuitz.github.io/desakalemago2',
+    'http://localhost:3000', 
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-username'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+// 1. Helmet - Security Headers (after CORS)
 const helmet = require('helmet');
 app.use(helmet({
   contentSecurityPolicy: {
@@ -23,7 +39,8 @@ app.use(helmet({
       connectSrc: ["'self'", "https://desakalemago2-backend-production.up.railway.app"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // 2. Rate Limiting - Prevent Brute Force & DDoS
@@ -50,20 +67,6 @@ const loginLimiter = rateLimit({
 
 // Apply general limiter to all routes
 app.use(generalLimiter);
-
-// 3. CORS - More Secure Configuration
-app.use(cors({
-  origin: [
-    'https://biskuitz.github.io', 
-    'https://biskuitz.github.io/desakalemago2',
-    'http://localhost:3000', 
-    'http://localhost:5500',
-    'http://127.0.0.1:5500'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-username'],
-  credentials: true
-}));
 
 // 4. Body Parser with Size Limit (Prevent large payload attacks)
 app.use(express.json({ limit: '1mb' }));
