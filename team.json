@@ -26,5 +26,15 @@
     "parentId": 1777729859432,
     "color": "#10b981",
     "position": 3
+  },
+  {
+    "id": 1777744877382,
+    "name": "Kelompok 1",
+    "role": "Kelompok",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777731514683,
+    "color": "#3b82f6",
+    "position": 2
   }
 ]
