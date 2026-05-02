@@ -268,25 +268,31 @@ async function saveAndPush(users) {
 // ============================================
 
 function loadTeam() {
-  if (!fs.existsSync(TEAM_FILE)) {
-    const defaultTeam = [
-      {
-        id: 1,
-        name: "Muh. Rizky Ramadhan",
-        role: "Koordinator Desa & Founder Website",
-        photo: "fotokkn/rama.png",
-        instagram: "#"
-      },
-      {
-        id: 2,
-        name: "Sri Wulandari",
-        role: "Wakil Koordinator Desa",
-        photo: "",
-        instagram: "#"
-      },
-      {
-        id: 3,
-        name: "Nurul Yumni",
+  try {
+    if (!fs.existsSync(TEAM_FILE)) {
+      const defaultTeam = [
+        {
+          id: 1,
+          name: "Muh. Rizky Ramadhan",
+          role: "Koordinator Desa & Founder Website",
+          photo: "fotokkn/rama.png",
+          instagram: "#",
+          parentId: null,
+          color: "#10b981",
+          position: 1
+        }
+      ];
+      fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
+      return defaultTeam;
+    }
+    
+    const rawData = fs.readFileSync(TEAM_FILE, 'utf8');
+    const team = JSON.parse(rawData);
+    return Array.isArray(team) ? team : [];
+  } catch (error) {
+    console.error('Error loading team.json:', error);
+    return [];
+  }
         role: "Sekretaris",
         photo: "",
         instagram: "#"
