@@ -67,13 +67,13 @@
     "position": 2
   },
   {
-    "id": 1777735749615,
-    "name": "Abd Razaq Lelo",
+    "id": 1777736904249,
+    "name": "Abd Razak Lelo",
     "role": "Konsumsi",
     "photo": "",
     "instagram": "#",
-    "parentId": null,
+    "parentId": 1777735325789,
     "color": "#10b981",
-    "position": 1
+    "position": 999
   }
 ]
