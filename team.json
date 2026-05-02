@@ -45,5 +45,25 @@
     "parentId": 1777731514683,
     "color": "#10b981",
     "position": 1
+  },
+  {
+    "id": 1777735471794,
+    "name": "Arifin",
+    "role": "Perlengkapan",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777731548035,
+    "color": "#10b981",
+    "position": 2
+  },
+  {
+    "id": 1777735489162,
+    "name": "Heldrison Karau",
+    "role": "Perlengkapan",
+    "photo": "",
+    "instagram": "#",
+    "parentId": 1777731548035,
+    "color": "#10b981",
+    "position": 2
   }
 ]
