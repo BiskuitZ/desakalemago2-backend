@@ -77,6 +77,56 @@ function sanitizeInput(str) {
     .trim();
 }
 
+// ============================================
+// ADVANCED SECURITY: Failed Login Tracking
+// ============================================
+
+const failedLoginAttempts = {}; // { username: { count: number, lastAttempt: timestamp, blockedUntil: timestamp } }
+
+function recordFailedLogin(username) {
+  const now = Date.now();
+  
+  if (!failedLoginAttempts[username]) {
+    failedLoginAttempts[username] = { count: 0, lastAttempt: now, blockedUntil: null };
+  }
+  
+  failedLoginAttempts[username].count++;
+  failedLoginAttempts[username].lastAttempt = now;
+  
+  // Block for 15 minutes after 5 failed attempts
+  if (failedLoginAttempts[username].count >= 5) {
+    failedLoginAttempts[username].blockedUntil = now + (15 * 60 * 1000); // 15 minutes
+    console.log(`🚫 User "${username}" has been blocked for 15 minutes due to too many failed login attempts.`);
+  }
+}
+
+function resetFailedLogin(username) {
+  if (failedLoginAttempts[username]) {
+    delete failedLoginAttempts[username];
+  }
+}
+
+function isUserBlocked(username) {
+  const attempt = failedLoginAttempts[username];
+  if (!attempt || !attempt.blockedUntil) return false;
+  
+  if (Date.now() > attempt.blockedUntil) {
+    // Unblock automatically
+    delete failedLoginAttempts[username];
+    return false;
+  }
+  
+  return true;
+}
+
+function getRemainingBlockTime(username) {
+  const attempt = failedLoginAttempts[username];
+  if (!attempt || !attempt.blockedUntil) return 0;
+  
+  const remaining = Math.ceil((attempt.blockedUntil - Date.now()) / 1000 / 60);
+  return remaining > 0 ? remaining : 0;
+}
+
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.xlsx');
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
@@ -353,11 +403,21 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
     }
     
+    // Check if user is currently blocked
+    if (isUserBlocked(username)) {
+      const remainingMinutes = getRemainingBlockTime(username);
+      return res.status(429).json({ 
+        success: false, 
+        message: `Akun Anda diblokir sementara. Coba lagi dalam ${remainingMinutes} menit.` 
+      });
+    }
+    
     let users = await downloadFromGitHub();
     
     const user = users.find(u => u.username === username);
     
     if (!user) {
+      recordFailedLogin(username);
       return res.status(404).json({ 
         success: false, 
         message: 'Akun tidak ditemukan. Silakan daftar terlebih dahulu.' 
@@ -365,8 +425,17 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     }
     
     if (user.password !== password) {
-      return res.status(401).json({ success: false, message: 'Password salah' });
+      recordFailedLogin(username);
+      const remainingAttempts = Math.max(0, 5 - (failedLoginAttempts[username]?.count || 0));
+      
+      return res.status(401).json({ 
+        success: false, 
+        message: `Password salah. Sisa percobaan: ${remainingAttempts}` 
+      });
     }
+    
+    // Login successful - reset failed attempts
+    resetFailedLogin(username);
     
     res.json({
       success: true,
