@@ -29,5 +29,27 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
+  },
+  {
+    "id": 1777793802795,
+    "name": "Feliks Laeka",
+    "role": "Humas & Website Sponsored",
+    "parentId": "1777793101636",
+    "position": 1,
+    "category": "1",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
+  },
+  {
+    "id": 1777793872810,
+    "name": "Gita Alifya Nusi",
+    "role": "Acara",
+    "parentId": "1777793101636",
+    "position": 3,
+    "category": "1",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
