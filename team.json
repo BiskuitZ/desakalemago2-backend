@@ -70,5 +70,27 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
+  },
+  {
+    "id": 1777778483089,
+    "name": "Abd Razak Lelo",
+    "role": "Konsumsi",
+    "parentId": 1777778058374,
+    "position": 2,
+    "category": "",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
+  },
+  {
+    "id": 1777778500408,
+    "name": "Mohammad Fadly",
+    "role": "PDD",
+    "parentId": 1777778194076,
+    "position": 2,
+    "category": "",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
