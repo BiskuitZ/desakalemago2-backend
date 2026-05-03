@@ -73,5 +73,16 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
+  },
+  {
+    "id": 1777796843422,
+    "name": "Abd Razak Lelo",
+    "role": "Konsumsi",
+    "parentId": "1777795967865",
+    "position": 2,
+    "category": "",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
