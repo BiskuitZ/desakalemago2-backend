@@ -18,38 +18,5 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
-  },
-  {
-    "id": 1777793780131,
-    "name": "Novita Risyafana Ndese",
-    "role": "Bendahara",
-    "parentId": "1777729859432",
-    "position": 3,
-    "category": "",
-    "photo": "",
-    "instagram": "#",
-    "color": "#10b981"
-  },
-  {
-    "id": 1777793802795,
-    "name": "Feliks Laeka",
-    "role": "Humas & Website Sponsored",
-    "parentId": "1777793101636",
-    "position": 1,
-    "category": "1",
-    "photo": "",
-    "instagram": "#",
-    "color": "#10b981"
-  },
-  {
-    "id": 1777793872810,
-    "name": "Gita Alifya Nusi",
-    "role": "Acara",
-    "parentId": "1777793101636",
-    "position": 3,
-    "category": "1",
-    "photo": "",
-    "instagram": "#",
-    "color": "#10b981"
   }
 ]
