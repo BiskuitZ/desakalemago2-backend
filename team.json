@@ -92,15 +92,5 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
-  },
-  {
-    "id": 1777779183855,
-    "name": "1",
-    "role": "Kelompok",
-    "photo": "",
-    "instagram": "#",
-    "parentId": 1777731514683,
-    "color": "#3b82f6",
-    "position": 2
   }
 ]
