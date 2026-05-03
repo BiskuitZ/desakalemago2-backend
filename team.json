@@ -62,5 +62,16 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
+  },
+  {
+    "id": 1777796107567,
+    "name": "Heldrison Karau",
+    "role": "Perlengkapan",
+    "parentId": "1777795940216",
+    "position": 3,
+    "category": "2",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
