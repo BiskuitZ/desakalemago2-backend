@@ -51,5 +51,16 @@
     "photo": "",
     "instagram": "#",
     "color": "#10b981"
+  },
+  {
+    "id": 1777796087255,
+    "name": "Arifin",
+    "role": "Perlengkapan",
+    "parentId": "1777795940216",
+    "position": 1,
+    "category": "2",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
