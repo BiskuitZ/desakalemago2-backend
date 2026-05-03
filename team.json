@@ -7,5 +7,27 @@
     "instagram": "#",
     "parentId": null,
     "color": "#10b981"
+  },
+  {
+    "id": 1777793101636,
+    "name": "Aulia",
+    "role": "Sekertaris",
+    "parentId": "1777729859432",
+    "position": 1,
+    "category": "",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
+  },
+  {
+    "id": 1777793115195,
+    "name": "Novita Risyafana Ndese",
+    "role": "Bendahara",
+    "parentId": "1777729859432",
+    "position": 1,
+    "category": "",
+    "photo": "",
+    "instagram": "#",
+    "color": "#10b981"
   }
 ]
