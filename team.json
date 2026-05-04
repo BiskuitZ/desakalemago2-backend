@@ -1,12 +1,14 @@
 [
   {
     "id": 1777729859432,
-    "name": "Mohamad Zikron",
+    "name": "Mohamad Zikron .T",
     "role": "Koordinator Desa",
     "photo": "",
     "instagram": "#",
     "parentId": null,
-    "color": "#10b981"
+    "color": "#10b981",
+    "position": 1,
+    "category": ""
   },
   {
     "id": 1777795919072,
