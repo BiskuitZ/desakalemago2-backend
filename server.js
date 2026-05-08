@@ -202,7 +202,9 @@ function readLocalUsers() {
     return defaultUsers;
   }
   const wb = XLSX.readFile(USERS_FILE);
-  return XLSX.utils.sheet_to_json(wb.sheets['Users']);
+  // Get the first sheet (more reliable than hardcoding 'Users')
+  const firstSheetName = wb.SheetNames[0];
+  return XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName]);
 }
 
 async function saveAndPush(users) {
