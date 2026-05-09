@@ -962,6 +962,25 @@ app.delete('/api/map-points/:id', requireDeveloper, (req, res) => {
 console.log('✅ Map Points endpoint ready: /api/map-points');
 
 // ============================================
+// VISITOR COUNTER (using viewer.js)
+// ============================================
+const viewer = require('./viewer');
+
+// GET visitor stats
+app.get('/api/visitor', (req, res) => {
+  const stats = viewer.getVisitorStats();
+  res.json({ success: true, data: stats });
+});
+
+// POST increment visitor
+app.post('/api/visitor', (req, res) => {
+  const result = viewer.incrementVisitor();
+  res.json({ success: true, data: result });
+});
+
+console.log('✅ Visitor endpoint ready: /api/visitor');
+
+// ============================================
 // START SERVER
 // ============================================
 
