@@ -974,7 +974,7 @@ app.get('/api/visitor', (req, res) => {
 
 // POST increment visitor
 app.post('/api/visitor', (req, res) => {
-  const result = viewer.incrementVisitor();
+  const result = viewer.incrementVisitor(req);
   res.json({ success: true, data: result });
 });
 
