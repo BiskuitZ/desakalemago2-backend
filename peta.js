@@ -37,6 +37,8 @@ function getAllPoints() {
 
 // Add new point
 function addPoint(pointData) {
+  console.log('📍 [peta.js] Menerima data titik baru:', pointData.name);
+  
   const points = loadMapPoints();
   const newPoint = {
     id: Date.now(),
@@ -50,6 +52,8 @@ function addPoint(pointData) {
   
   points.push(newPoint);
   saveMapPoints(points);
+  
+  console.log('✅ [peta.js] Titik berhasil disimpan ke map-points.json. Total titik:', points.length);
   return newPoint;
 }
 
