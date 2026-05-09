@@ -49,10 +49,10 @@ app.use(helmet({
 // 2. Rate Limiting - Prevent Brute Force & DDoS
 const rateLimit = require('express-rate-limit');
 
-// General API rate limit (100 requests per 15 minutes)
+// General API rate limit (300 requests per 15 minutes - increased for dashboard)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 300,
   message: { success: false, message: 'Terlalu banyak permintaan. Coba lagi dalam 15 menit.' },
   standardHeaders: true,
   legacyHeaders: false,
