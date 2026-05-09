@@ -7,6 +7,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (required for Railway + express-rate-limit)
+app.set('trust proxy', 1);
+
 // ============================================
 // SECURITY MIDDLEWARE (Anti-DDoS & Cyber Protection)
 // ============================================
