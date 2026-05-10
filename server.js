@@ -97,14 +97,14 @@ const failedLoginAttempts = {}; // { username: { count: number, lastAttempt: tim
 
 function recordFailedLogin(username) {
   const now = Date.now();
-  
+
   if (!failedLoginAttempts[username]) {
     failedLoginAttempts[username] = { count: 0, lastAttempt: now, blockedUntil: null };
   }
-  
+
   failedLoginAttempts[username].count++;
   failedLoginAttempts[username].lastAttempt = now;
-  
+
   // Block for 15 minutes after 5 failed attempts
   if (failedLoginAttempts[username].count >= 5) {
     failedLoginAttempts[username].blockedUntil = now + (15 * 60 * 1000); // 15 minutes
@@ -121,20 +121,20 @@ function resetFailedLogin(username) {
 function isUserBlocked(username) {
   const attempt = failedLoginAttempts[username];
   if (!attempt || !attempt.blockedUntil) return false;
-  
+
   if (Date.now() > attempt.blockedUntil) {
     // Unblock automatically
     delete failedLoginAttempts[username];
     return false;
   }
-  
+
   return true;
 }
 
 function getRemainingBlockTime(username) {
   const attempt = failedLoginAttempts[username];
   if (!attempt || !attempt.blockedUntil) return 0;
-  
+
   const remaining = Math.ceil((attempt.blockedUntil - Date.now()) / 1000 / 60);
   return remaining > 0 ? remaining : 0;
 }
@@ -225,7 +225,7 @@ async function saveAndPush(users) {
   try {
     console.log('📤 Pushing to GitHub...');
     const content = fs.readFileSync(USERS_FILE).toString('base64');
-    
+
     let sha = '';
     try {
       const getRes = await fetch(
@@ -291,7 +291,7 @@ function loadTeam() {
       fs.writeFileSync(TEAM_FILE, JSON.stringify(defaultTeam, null, 2));
       return defaultTeam;
     }
-    
+
     const rawData = fs.readFileSync(TEAM_FILE, 'utf8');
     const team = JSON.parse(rawData);
     return Array.isArray(team) ? team : [];
@@ -311,10 +311,10 @@ async function pushTeamToGitHub(data) {
     console.log('⚠️ No GITHUB_TOKEN, skipping push');
     return;
   }
-  
+
   try {
     const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
-    
+
     let sha = '';
     try {
       const getRes = await fetch(
@@ -330,7 +330,7 @@ async function pushTeamToGitHub(data) {
         sha = (await getRes.json()).sha;
       }
     } catch (e) {}
-    
+
     await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/team.json`,
       {
@@ -347,7 +347,7 @@ async function pushTeamToGitHub(data) {
         })
       }
     );
-    
+
     console.log('✅ Team data pushed to GitHub');
   } catch (err) {
     console.log('❌ Push team error:', err.message);
@@ -374,17 +374,17 @@ function requireDeveloper(req, res, next) {
 app.post('/api/auth/register', loginLimiter, async (req, res) => {
   try {
     const { username, password, name } = req.body;
-    
+
     if (!username || !password || !name) {
       return res.status(400).json({ success: false, message: 'Username, password, dan nama wajib diisi' });
     }
-    
+
     let users = await downloadFromGitHub();
-    
+
     if (users.find(u => u.username === username)) {
       return res.status(400).json({ success: false, message: 'Username sudah digunakan' });
     }
-    
+
     const newUser = {
       id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
       username,
@@ -392,10 +392,10 @@ app.post('/api/auth/register', loginLimiter, async (req, res) => {
       name,
       role: 'user'
     };
-    
+
     users.push(newUser);
     await saveAndPush(users);
-    
+
     res.status(201).json({
       success: true,
       message: 'Registrasi berhasil',
@@ -409,11 +409,11 @@ app.post('/api/auth/register', loginLimiter, async (req, res) => {
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
     }
-    
+
     // Check if user is currently blocked
     if (isUserBlocked(username)) {
       const remainingMinutes = getRemainingBlockTime(username);
@@ -422,11 +422,11 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         message: `Akun Anda diblokir sementara. Coba lagi dalam ${remainingMinutes} menit.` 
       });
     }
-    
+
     let users = await downloadFromGitHub();
-    
+
     const user = users.find(u => u.username === username);
-    
+
     if (!user) {
       recordFailedLogin(username);
       return res.status(404).json({ 
@@ -434,20 +434,20 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         message: 'Akun tidak ditemukan. Silakan daftar terlebih dahulu.' 
       });
     }
-    
+
     if (user.password !== password) {
       recordFailedLogin(username);
       const remainingAttempts = Math.max(0, 5 - (failedLoginAttempts[username]?.count || 0));
-      
+
       return res.status(401).json({ 
         success: false, 
         message: `Password salah. Sisa percobaan: ${remainingAttempts}` 
       });
     }
-    
+
     // Login successful - reset failed attempts
     resetFailedLogin(username);
-    
+
     res.json({
       success: true,
       message: 'Login berhasil',
@@ -461,11 +461,11 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 app.get('/api/auth/profile', async (req, res) => {
   const username = req.query.username;
   if (!username) return res.status(400).json({ success: false, message: 'Username diperlukan' });
-  
+
   let users = await downloadFromGitHub();
   const user = users.find(u => u.username === username);
   if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
-  
+
   res.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } });
 });
 
@@ -487,20 +487,20 @@ app.get('/api/admin/users', requireDeveloper, async (req, res) => {
 app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
   const { username, password, name, role } = req.body;
-  
+
   let users = await downloadFromGitHub();
   const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
   }
-  
+
   if (username) users[userIndex].username = username;
   if (password) users[userIndex].password = password;
   if (name) users[userIndex].name = name;
   if (role) users[userIndex].role = role;
-  
+
   await saveAndPush(users);
-  
+
   res.json({ 
     success: true, 
     message: 'User berhasil diupdate',
@@ -510,20 +510,20 @@ app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
 
 app.delete('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
-  
+
   let users = await downloadFromGitHub();
   const userIndex = users.findIndex(u => u.id === userId);
   if (userIndex === -1) {
     return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
   }
-  
+
   if (users[userIndex].role === 'developer') {
     return res.status(400).json({ success: false, message: 'Tidak bisa menghapus akun developer' });
   }
-  
+
   const deletedUser = users.splice(userIndex, 1)[0];
   await saveAndPush(users);
-  
+
   res.json({ 
     success: true, 
     message: 'User berhasil dihapus',
@@ -544,9 +544,9 @@ app.post('/api/track-visit', (req, res) => {
     timestamp: new Date().toISOString(),
     ip: req.ip || 'unknown'
   });
-  
+
   if (lastVisitors.length > 50) lastVisitors.pop();
-  
+
   res.json({ success: true, totalVisitors: visitorCount });
 });
 
@@ -587,10 +587,10 @@ function saveProducts(products) {
 
 async function saveAndPushProducts(products) {
   if (!GITHUB_TOKEN) return;
-  
+
   try {
     const content = Buffer.from(JSON.stringify(products, null, 2)).toString('base64');
-    
+
     let sha = '';
     try {
       const getRes = await fetch(
@@ -606,7 +606,7 @@ async function saveAndPushProducts(products) {
         sha = (await getRes.json()).sha;
       }
     } catch (e) {}
-    
+
     await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/products.json`,
       {
@@ -623,7 +623,7 @@ async function saveAndPushProducts(products) {
         })
       }
     );
-    
+
     console.log('✅ Products pushed to GitHub');
   } catch (err) {
     console.log('❌ Push products error:', err.message);
@@ -638,11 +638,11 @@ app.get('/api/products', (req, res) => {
 app.post('/api/products', requireDeveloper, async (req, res) => {
   try {
     const { name, price, image, description, stock } = req.body;
-    
+
     if (!name || !price || !image || !description) {
       return res.status(400).json({ success: false, message: 'Semua field wajib diisi' });
     }
-    
+
     const products = loadProducts();
     const newProduct = {
       id: products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1,
@@ -652,11 +652,11 @@ app.post('/api/products', requireDeveloper, async (req, res) => {
       description,
       stock: parseInt(stock) || 0
     };
-    
+
     products.push(newProduct);
     saveProducts(products);
     await saveAndPushProducts(products);
-    
+
     res.status(201).json({ success: true, message: 'Produk berhasil ditambahkan', product: newProduct });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -667,23 +667,23 @@ app.put('/api/products/:id', requireDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
     const { name, price, image, description, stock } = req.body;
-    
+
     const products = loadProducts();
     const productIndex = products.findIndex(p => p.id === productId);
-    
+
     if (productIndex === -1) {
       return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
     }
-    
+
     if (name) products[productIndex].name = name;
     if (price) products[productIndex].price = parseInt(price);
     if (image) products[productIndex].image = image;
     if (description) products[productIndex].description = description;
     if (stock !== undefined) products[productIndex].stock = parseInt(stock);
-    
+
     saveProducts(products);
     await saveAndPushProducts(products);
-    
+
     res.json({ success: true, message: 'Produk berhasil diupdate', product: products[productIndex] });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -693,18 +693,18 @@ app.put('/api/products/:id', requireDeveloper, async (req, res) => {
 app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    
+
     const products = loadProducts();
     const productIndex = products.findIndex(p => p.id === productId);
-    
+
     if (productIndex === -1) {
       return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
     }
-    
+
     const deletedProduct = products.splice(productIndex, 1)[0];
     saveProducts(products);
     await saveAndPushProducts(products);
-    
+
     res.json({ success: true, message: 'Produk berhasil dihapus', deletedProduct });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -794,10 +794,10 @@ app.put('/api/apbdes', requireDeveloper, async (req, res) => {
 
 async function pushToGitHub(filename, data) {
   if (!GITHUB_TOKEN) return;
-  
+
   try {
     const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
-    
+
     let sha = '';
     try {
       const getRes = await fetch(
@@ -813,7 +813,7 @@ async function pushToGitHub(filename, data) {
         sha = (await getRes.json()).sha;
       }
     } catch (e) {}
-    
+
     await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filename}`,
       {
@@ -830,7 +830,7 @@ async function pushToGitHub(filename, data) {
         })
       }
     );
-    
+
     console.log(`✅ ${filename} pushed to GitHub`);
   } catch (err) {
     console.log(`❌ Push ${filename} error:`, err.message);
@@ -886,11 +886,11 @@ app.get('/api/map-points', (req, res) => {
 app.post('/api/map-points', requireDeveloper, (req, res) => {
   try {
     const { name, lat, lng, description, icon } = req.body;
-    
+
     if (!name || !lat || !lng) {
       return res.status(400).json({ success: false, message: 'Nama, latitude, dan longitude wajib diisi' });
     }
-    
+
     const points = loadMapPoints();
     const newPoint = {
       id: Date.now(),
@@ -901,10 +901,10 @@ app.post('/api/map-points', requireDeveloper, (req, res) => {
       icon: icon || 'fa-map-marker-alt',
       createdAt: new Date().toISOString()
     };
-    
+
     points.push(newPoint);
     saveMapPoints(points);
-    
+
     res.status(201).json(newPoint);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -916,22 +916,22 @@ app.put('/api/map-points/:id', requireDeveloper, (req, res) => {
   try {
     const pointId = parseInt(req.params.id);
     const { name, lat, lng, description, icon } = req.body;
-    
+
     const points = loadMapPoints();
     const pointIndex = points.findIndex(p => p.id === pointId);
-    
+
     if (pointIndex === -1) {
       return res.status(404).json({ success: false, message: 'Titik tidak ditemukan' });
     }
-    
+
     if (name) points[pointIndex].name = name;
     if (lat) points[pointIndex].lat = parseFloat(lat);
     if (lng) points[pointIndex].lng = parseFloat(lng);
     if (description !== undefined) points[pointIndex].description = description;
     if (icon) points[pointIndex].icon = icon;
-    
+
     saveMapPoints(points);
-    
+
     res.json({ success: true, message: 'Titik berhasil diupdate', point: points[pointIndex] });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -942,17 +942,17 @@ app.put('/api/map-points/:id', requireDeveloper, (req, res) => {
 app.delete('/api/map-points/:id', requireDeveloper, (req, res) => {
   try {
     const pointId = parseInt(req.params.id);
-    
+
     const points = loadMapPoints();
     const pointIndex = points.findIndex(p => p.id === pointId);
-    
+
     if (pointIndex === -1) {
       return res.status(404).json({ success: false, message: 'Titik tidak ditemukan' });
     }
-    
+
     const deletedPoint = points.splice(pointIndex, 1)[0];
     saveMapPoints(points);
-    
+
     res.json({ success: true, message: 'Titik berhasil dihapus', deletedPoint });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
@@ -967,14 +967,15 @@ console.log('✅ Map Points endpoint ready: /api/map-points');
 const viewer = require('./viewer');
 
 // GET visitor stats
-app.get('/api/visitor', async (req, res) => {
-  const stats = await viewer.getVisitorStats();
+app.get('/api/visitor', (req, res) => {
+  const stats = viewer.getVisitorStats();
   res.json({ success: true, data: stats });
 });
 
 // POST increment visitor
-app.post('/api/visitor', async (req, res) => {
-  const result = await viewer.incrementVisitor(req);
+app.post('/api/visitor', (req, res) => {
+  const result = viewer.incrementVisitor();
+  const result = viewer.incrementVisitor(req);
   res.json({ success: true, data: result });
 });
 
@@ -997,4 +998,3 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Team endpoint ready: /api/team`);
   console.log(`✅ Map Points endpoint ready: /api/map-points`);
-});</content>
