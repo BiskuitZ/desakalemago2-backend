@@ -1,26 +1,20 @@
-# Integrasi Frontend & Backend Desa Kalemago
+# Integrasi Frontend-Backend
 
-## Endpoint Utama
-- POST /api/auth/register
-- POST /api/auth/login
-- GET /api/population
-- PUT /api/population
-- GET /api/apbdes
-- PUT /api/apbdes
-- GET /api/products
-- POST /api/products
-- GET /api/team
-- PUT /api/team
-- GET /api/map-points
-- POST /api/map-points
+## Langkah 1
+Jalankan backend:
+cd backend
+npm install
+npm start
 
-## Keamanan
-- Helmet
-- Rate Limiting
-- CORS whitelist
-- Failed login tracking
+## Langkah 2
+Buka login.html di browser
 
-## Deployment
-Railway / Render / VPS
+## API
+http://localhost:3000/api/auth/login
 
-Frontend: https://biskuitz.github.io/desakalemago2
+## Contoh Fetch
+fetch('http://localhost:3000/api/auth/login', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({username, password})
+})
