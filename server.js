@@ -482,30 +482,6 @@ app.delete('/api/admin/users/:id', requireDeveloper, async (req, res) => {
 });
 
 // ============================================
-// VISITOR STATS (Legacy - kept for compatibility)
-// ============================================
-let visitorCount = 0;
-let lastVisitors = [];
-
-app.post('/api/track-visit', (req, res) => {
-  visitorCount++;
-  lastVisitors.unshift({
-    timestamp: new Date().toISOString(),
-    ip: req.ip || 'unknown'
-  });
-  if (lastVisitors.length > 50) lastVisitors.pop();
-  res.json({ success: true, totalVisitors: visitorCount });
-});
-
-app.get('/api/stats', (req, res) => {
-  res.json({
-    success: true,
-    totalVisitors: visitorCount,
-    recentVisitors: lastVisitors.slice(0, 10)
-  });
-});
-
-// ============================================
 // PRODUCT MANAGEMENT
 // ============================================
 function loadProducts() {
@@ -869,25 +845,6 @@ app.delete('/api/map-points/:id', requireDeveloper, (req, res) => {
 });
 
 console.log('✅ Map Points endpoint ready: /api/map-points');
-
-// ============================================
-// VISITOR COUNTER (using viewer.js)
-// ============================================
-const viewer = require('./viewer');
-
-// GET visitor stats
-app.get('/api/visitor', (req, res) => {
-  const stats = viewer.getVisitorStats();
-  res.json({ success: true, data: stats });
-});
-
-// POST increment visitor
-app.post('/api/visitor', (req, res) => {
-  const result = viewer.incrementVisitor(req);
-  res.json({ success: true, data: result });
-});
-
-console.log('✅ Visitor endpoint ready: /api/visitor');
 
 // ============================================
 // START SERVER
