@@ -967,14 +967,14 @@ console.log('✅ Map Points endpoint ready: /api/map-points');
 const viewer = require('./viewer');
 
 // GET visitor stats
-app.get('/api/visitor', (req, res) => {
-  const stats = viewer.getVisitorStats();
+app.get('/api/visitor', async (req, res) => {
+  const stats = await viewer.getVisitorStats();
   res.json({ success: true, data: stats });
 });
 
 // POST increment visitor
-app.post('/api/visitor', (req, res) => {
-  const result = viewer.incrementVisitor(req);
+app.post('/api/visitor', async (req, res) => {
+  const result = await viewer.incrementVisitor(req);
   res.json({ success: true, data: result });
 });
 
@@ -997,4 +997,4 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Team endpoint ready: /api/team`);
   console.log(`✅ Map Points endpoint ready: /api/map-points`);
-});
+});</content>
