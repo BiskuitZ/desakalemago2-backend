@@ -7,9 +7,6 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust proxy (required for Railway + express-rate-limit)
-app.set('trust proxy', 1);
-
 // ============================================
 // SECURITY MIDDLEWARE (Anti-DDoS & Cyber Protection)
 // ============================================
@@ -49,10 +46,10 @@ app.use(helmet({
 // 2. Rate Limiting - Prevent Brute Force & DDoS
 const rateLimit = require('express-rate-limit');
 
-// General API rate limit (300 requests per 15 minutes - increased for dashboard)
+// General API rate limit (100 requests per 15 minutes)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300,
+  max: 100,
   message: { success: false, message: 'Terlalu banyak permintaan. Coba lagi dalam 15 menit.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -145,7 +142,6 @@ const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 const POPULATION_FILE = path.join(__dirname, 'population.json');
 const APBDES_FILE = path.join(__dirname, 'apbdes.json');
 const TEAM_FILE = path.join(__dirname, 'team.json');
-const MAP_POINTS_FILE = path.join(__dirname, 'map-points.json');
 
 // GitHub Config
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -205,9 +201,7 @@ function readLocalUsers() {
     return defaultUsers;
   }
   const wb = XLSX.readFile(USERS_FILE);
-  // Get the first sheet (more reliable than hardcoding 'Users')
-  const firstSheetName = wb.SheetNames[0];
-  return XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName]);
+  return XLSX.utils.sheet_to_json(wb.Sheets['Users']);
 }
 
 async function saveAndPush(users) {
@@ -858,129 +852,6 @@ app.put('/api/team', requireDeveloper, async (req, res) => {
 });
 
 // ============================================
-// MAP POINTS (PETA DESA) - SINKRON KE SEMUA PERANGKAT
-// ============================================
-
-// Load map points
-function loadMapPoints() {
-  if (!fs.existsSync(MAP_POINTS_FILE)) {
-    fs.writeFileSync(MAP_POINTS_FILE, JSON.stringify([], null, 2));
-    return [];
-  }
-  return JSON.parse(fs.readFileSync(MAP_POINTS_FILE, 'utf8'));
-}
-
-// Save map points
-function saveMapPoints(points) {
-  fs.writeFileSync(MAP_POINTS_FILE, JSON.stringify(points, null, 2));
-  console.log('✅ Map points saved');
-}
-
-// GET semua titik peta
-app.get('/api/map-points', (req, res) => {
-  const points = loadMapPoints();
-  res.json(points);
-});
-
-// POST titik baru
-app.post('/api/map-points', requireDeveloper, (req, res) => {
-  try {
-    const { name, lat, lng, description, icon } = req.body;
-    
-    if (!name || !lat || !lng) {
-      return res.status(400).json({ success: false, message: 'Nama, latitude, dan longitude wajib diisi' });
-    }
-    
-    const points = loadMapPoints();
-    const newPoint = {
-      id: Date.now(),
-      name,
-      lat: parseFloat(lat),
-      lng: parseFloat(lng),
-      description: description || '',
-      icon: icon || 'fa-map-marker-alt',
-      createdAt: new Date().toISOString()
-    };
-    
-    points.push(newPoint);
-    saveMapPoints(points);
-    
-    res.status(201).json(newPoint);
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
-  }
-});
-
-// PUT update titik
-app.put('/api/map-points/:id', requireDeveloper, (req, res) => {
-  try {
-    const pointId = parseInt(req.params.id);
-    const { name, lat, lng, description, icon } = req.body;
-    
-    const points = loadMapPoints();
-    const pointIndex = points.findIndex(p => p.id === pointId);
-    
-    if (pointIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Titik tidak ditemukan' });
-    }
-    
-    if (name) points[pointIndex].name = name;
-    if (lat) points[pointIndex].lat = parseFloat(lat);
-    if (lng) points[pointIndex].lng = parseFloat(lng);
-    if (description !== undefined) points[pointIndex].description = description;
-    if (icon) points[pointIndex].icon = icon;
-    
-    saveMapPoints(points);
-    
-    res.json({ success: true, message: 'Titik berhasil diupdate', point: points[pointIndex] });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
-  }
-});
-
-// DELETE titik
-app.delete('/api/map-points/:id', requireDeveloper, (req, res) => {
-  try {
-    const pointId = parseInt(req.params.id);
-    
-    const points = loadMapPoints();
-    const pointIndex = points.findIndex(p => p.id === pointId);
-    
-    if (pointIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Titik tidak ditemukan' });
-    }
-    
-    const deletedPoint = points.splice(pointIndex, 1)[0];
-    saveMapPoints(points);
-    
-    res.json({ success: true, message: 'Titik berhasil dihapus', deletedPoint });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
-  }
-});
-
-console.log('✅ Map Points endpoint ready: /api/map-points');
-
-// ============================================
-// VISITOR COUNTER (using viewer.js)
-// ============================================
-const viewer = require('./viewer');
-
-// GET visitor stats
-app.get('/api/visitor', (req, res) => {
-  const stats = viewer.getVisitorStats();
-  res.json({ success: true, data: stats });
-});
-
-// POST increment visitor
-app.post('/api/visitor', (req, res) => {
-  const result = viewer.incrementVisitor(req);
-  res.json({ success: true, data: result });
-});
-
-console.log('✅ Visitor endpoint ready: /api/visitor');
-
-// ============================================
 // START SERVER
 // ============================================
 
@@ -996,5 +867,4 @@ downloadFromGitHub().then(data => {
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Team endpoint ready: /api/team`);
-  console.log(`✅ Map Points endpoint ready: /api/map-points`);
 });
