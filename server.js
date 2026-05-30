@@ -198,6 +198,12 @@ async function downloadFromGitHub() {
 
     const data = await res.json();
     const content = Buffer.from(data.content, 'base64');
+
+    const usersDir = path.dirname(USERS_FILE);
+    if (!fs.existsSync(usersDir)) {
+      fs.mkdirSync(usersDir, { recursive: true });
+    }
+
     fs.writeFileSync(USERS_FILE, content);
     console.log('✅ Downloaded from GitHub');
     return readLocalUsers();
@@ -208,6 +214,11 @@ async function downloadFromGitHub() {
 }
 
 function readLocalUsers() {
+  const usersDir = path.dirname(USERS_FILE);
+  if (!fs.existsSync(usersDir)) {
+    fs.mkdirSync(usersDir, { recursive: true });
+  }
+
   if (!fs.existsSync(USERS_FILE)) {
     const defaultUsers = [
       { id: 1, username: 'admin', password: 'admin123', name: 'Administrator Desa Kalemago', role: 'admin' }
@@ -223,6 +234,11 @@ function readLocalUsers() {
 }
 
 async function saveAndPush(users) {
+  const usersDir = path.dirname(USERS_FILE);
+  if (!fs.existsSync(usersDir)) {
+    fs.mkdirSync(usersDir, { recursive: true });
+  }
+
   const ws = XLSX.utils.json_to_sheet(users);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
