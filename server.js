@@ -10,6 +10,10 @@ const jwt = require('jsonwebtoken');
 const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
+
+// Fix for Railway / proxies (prevents express-rate-limit X-Forwarded-For error)
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000;
 
 // ============================================
