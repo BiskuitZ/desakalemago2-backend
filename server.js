@@ -178,6 +178,12 @@ console.log('GITHUB_TOKEN exists:', GITHUB_TOKEN ? 'YES' : 'NO');
 // ============================================
 
 async function downloadFromGitHub() {
+  // If we prefer local user file (to avoid sync mess), skip GitHub download for users
+  if (process.env.DISABLE_USER_GITHUB_SYNC === 'true') {
+    console.log('⚠️ DISABLE_USER_GITHUB_SYNC=true → using local backend/users.xlsx');
+    return readLocalUsers();
+  }
+
   if (!GITHUB_TOKEN) {
     console.log('⚠️ No GITHUB_TOKEN, using local file');
     return readLocalUsers();
@@ -196,7 +202,7 @@ async function downloadFromGitHub() {
     );
 
     if (!res.ok) {
-      console.log('⚠️ GitHub file not found, creating new one');
+      console.log('⚠️ GitHub file not found, using local backend/users.xlsx');
       return readLocalUsers();
     }
 
@@ -249,8 +255,10 @@ async function saveAndPush(users) {
   XLSX.writeFile(wb, USERS_FILE);
   console.log('✅ Saved locally');
 
-  if (!GITHUB_TOKEN) {
-    console.log('⚠️ No GITHUB_TOKEN, skipping push');
+  // TEMPORARY: Skip GitHub push for users to avoid sync mess between repos.
+  // User data is now primarily managed inside this backend repo.
+  if (process.env.DISABLE_USER_GITHUB_SYNC === 'true' || !GITHUB_TOKEN) {
+    console.log('⚠️ Skipping GitHub push for users (DISABLE_USER_GITHUB_SYNC or no token)');
     return;
   }
 
