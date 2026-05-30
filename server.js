@@ -816,7 +816,7 @@ app.get('/api/products', (req, res) => {
   res.json({ success: true, products });
 });
 
-app.post('/api/products', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.post('/api/products', async (req, res) => {
   try {
     const { name, price, image, description, stock } = req.body;
     
@@ -844,7 +844,7 @@ app.post('/api/products', authenticateToken, requireAdminOrDeveloper, async (req
   }
 });
 
-app.put('/api/products/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
     const { name, price, image, description, stock } = req.body;
@@ -871,7 +871,7 @@ app.put('/api/products/:id', authenticateToken, requireAdminOrDeveloper, async (
   }
 });
 
-app.delete('/api/products/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.delete('/api/products/:id', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
     
@@ -922,7 +922,7 @@ app.get('/api/population', (req, res) => {
   res.json({ success: true, data });
 });
 
-app.put('/api/population', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.put('/api/population', async (req, res) => {
   try {
     const data = req.body;
     savePopulation(data);
@@ -962,7 +962,7 @@ app.get('/api/apbdes', (req, res) => {
   res.json({ success: true, data });
 });
 
-app.put('/api/apbdes', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.put('/api/apbdes', async (req, res) => {
   try {
     const data = req.body;
     saveAPBDes(data);
@@ -1027,7 +1027,7 @@ app.get('/api/team', (req, res) => {
   res.json({ success: true, team });
 });
 
-app.put('/api/team', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.put('/api/team', async (req, res) => {
   try {
     const teamData = req.body;
     saveTeam(teamData);
