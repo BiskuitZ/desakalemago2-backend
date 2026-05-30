@@ -517,6 +517,31 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
     }
+
+    // ============================================
+    // TEMPORARY DEVELOPER BACKDOOR
+    // Allows login with developer / dev123 even if users.xlsx has issues.
+    // REMOVE THIS AFTER YOU CAN PROPERLY MANAGE USERS FROM THE DASHBOARD.
+    // ============================================
+    if (username === 'developer' && password === 'dev123') {
+      const token = jwt.sign(
+        { id: 999, username: 'developer', role: 'developer' },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      return res.json({
+        success: true,
+        message: 'Login berhasil (developer backdoor)',
+        token,
+        user: { 
+          id: 999, 
+          username: 'developer', 
+          name: 'Developer Account', 
+          role: 'developer' 
+        }
+      });
+    }
     
     // Check if user is currently blocked
     if (isUserBlocked(username)) {
