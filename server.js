@@ -3,9 +3,24 @@ const cors = require('cors');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Load existing middleware (we will improve usage gradually)
+const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ============================================
+// JWT CONFIGURATION (IMPORTANT FOR SECURITY)
+// ============================================
+const JWT_SECRET = process.env.JWT_SECRET || 'desakalemago-dev-secret-2026-CHANGE-IN-PRODUCTION';
+const JWT_EXPIRES_IN = '7d';
+
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET not set in environment. Using default (only safe for local development)');
+}
 
 // ============================================
 // SECURITY MIDDLEWARE (Anti-DDoS & Cyber Protection)
@@ -355,16 +370,84 @@ async function pushTeamToGitHub(data) {
 // Old CORS removed - using enhanced version above
 app.use(express.json());
 
-function requireDeveloper(req, res, next) {
-  const username = req.headers['x-username'];
-  if (!username) return res.status(401).json({ success: false, message: 'Unauthorized' });
-  next();
+/**
+ * NEW: Proper Role-Based Authorization Middleware
+ * This replaces the old insecure requireDeveloper (which only checked x-username header)
+ */
+function authorizeRoles(...allowedRoles) {
+  return (req, res, next) => {
+    // First, ensure user is authenticated
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token tidak valid atau tidak ditemukan' 
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Akses ditolak. Anda tidak memiliki hak untuk aksi ini.' 
+      });
+    }
+
+    next();
+  };
 }
 
+// Role-based authorization helpers (clean & secure)
+const requireDeveloper = authorizeRoles('developer');
+const requireAdminOrDeveloper = authorizeRoles('admin', 'developer');
+
+// Note: Old insecure "x-username" header protection has been removed.
+// All protected routes now require valid JWT + proper role.
+
 // ============================================
-// AUTH ENDPOINTS
+// SECURE AUTH ENDPOINTS (bcrypt + JWT)
 // ============================================
 
+/**
+ * Helper: Check if a string is already a bcrypt hash
+ */
+function isHashedPassword(str) {
+  return typeof str === 'string' && str.startsWith('$2');
+}
+
+/**
+ * Helper: Hash password using bcrypt
+ */
+async function hashPassword(plainPassword) {
+  const saltRounds = 10;
+  return await bcrypt.hash(plainPassword, saltRounds);
+}
+
+/**
+ * Helper: Verify password (supports both hashed and legacy plain text during migration)
+ */
+async function verifyPassword(inputPassword, storedPassword) {
+  if (isHashedPassword(storedPassword)) {
+    return await bcrypt.compare(inputPassword, storedPassword);
+  } else {
+    // Legacy support: plain text comparison (for existing users like admin/admin123)
+    return inputPassword === storedPassword;
+  }
+}
+
+/**
+ * Helper: Upgrade plain text password to hashed version after successful login
+ */
+async function upgradePasswordIfNeeded(users, userIndex, plainPassword) {
+  const user = users[userIndex];
+  
+  if (!isHashedPassword(user.password)) {
+    console.log(`🔐 Upgrading password to hash for user: ${user.username}`);
+    user.password = await hashPassword(plainPassword);
+    await saveAndPush(users);
+    console.log(`✅ Password upgraded successfully for ${user.username}`);
+  }
+}
+
+// REGISTER - Always stores hashed password
 app.post('/api/auth/register', loginLimiter, async (req, res) => {
   try {
     const { username, password, name } = req.body;
@@ -373,16 +456,22 @@ app.post('/api/auth/register', loginLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username, password, dan nama wajib diisi' });
     }
     
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password minimal 6 karakter' });
+    }
+    
     let users = await downloadFromGitHub();
     
     if (users.find(u => u.username === username)) {
       return res.status(400).json({ success: false, message: 'Username sudah digunakan' });
     }
     
+    const hashedPassword = await hashPassword(password);
+    
     const newUser = {
       id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
       username,
-      password: password,
+      password: hashedPassword,
       name,
       role: 'user'
     };
@@ -396,10 +485,12 @@ app.post('/api/auth/register', loginLimiter, async (req, res) => {
       user: { id: newUser.id, username: newUser.username, name: newUser.name, role: newUser.role }
     });
   } catch (error) {
+    console.error('Register error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
 });
 
+// LOGIN - Supports legacy plain text + auto-upgrades to hash + returns JWT
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -419,7 +510,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     
     let users = await downloadFromGitHub();
     
-    const user = users.find(u => u.username === username);
+    const userIndex = users.findIndex(u => u.username === username);
+    const user = userIndex !== -1 ? users[userIndex] : null;
     
     if (!user) {
       recordFailedLogin(username);
@@ -429,7 +521,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       });
     }
     
-    if (user.password !== password) {
+    const isPasswordValid = await verifyPassword(password, user.password);
+    
+    if (!isPasswordValid) {
       recordFailedLogin(username);
       const remainingAttempts = Math.max(0, 5 - (failedLoginAttempts[username]?.count || 0));
       
@@ -439,20 +533,51 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       });
     }
     
-    // Login successful - reset failed attempts
+    // Login successful
     resetFailedLogin(username);
+    
+    // Auto-upgrade legacy plain text password to bcrypt hash
+    await upgradePasswordIfNeeded(users, userIndex, password);
+    
+    // Generate JWT Token
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role 
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
     
     res.json({
       success: true,
       message: 'Login berhasil',
-      user: { id: user.id, username: user.username, name: user.name, role: user.role }
+      token,                    // ← NEW: Frontend should store this
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        name: user.name, 
+        role: user.role 
+      }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan server' });
   }
 });
 
-app.get('/api/auth/profile', async (req, res) => {
+// PROFILE - Now protected with JWT (recommended way)
+app.get('/api/auth/profile', authenticateToken, async (req, res) => {
+  // req.user is populated by authenticateToken middleware
+  res.json({ 
+    success: true, 
+    user: req.user 
+  });
+});
+
+// Legacy profile endpoint (kept for compatibility during transition)
+app.get('/api/auth/profile-legacy', async (req, res) => {
   const username = req.query.username;
   if (!username) return res.status(400).json({ success: false, message: 'Username diperlukan' });
   
@@ -467,7 +592,13 @@ app.get('/api/auth/profile', async (req, res) => {
 // ADMIN/DEVELOPER ENDPOINTS
 // ============================================
 
-app.get('/api/admin/users', requireDeveloper, async (req, res) => {
+// ============================================
+// ADMIN / DEVELOPER ROUTES - NOW PROPERLY PROTECTED
+// ============================================
+
+// All these routes now require valid JWT + correct role
+
+app.get('/api/admin/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   let users = await downloadFromGitHub();
   const safeUsers = users.map(u => ({
     id: u.id,
@@ -478,7 +609,7 @@ app.get('/api/admin/users', requireDeveloper, async (req, res) => {
   res.json({ success: true, users: safeUsers });
 });
 
-app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
+app.put('/api/admin/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
   const { username, password, name, role } = req.body;
   
@@ -489,7 +620,10 @@ app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   }
   
   if (username) users[userIndex].username = username;
-  if (password) users[userIndex].password = password;
+  if (password) {
+    // Hash new password if provided
+    users[userIndex].password = await hashPassword(password);
+  }
   if (name) users[userIndex].name = name;
   if (role) users[userIndex].role = role;
   
@@ -498,11 +632,16 @@ app.put('/api/admin/users/:id', requireDeveloper, async (req, res) => {
   res.json({ 
     success: true, 
     message: 'User berhasil diupdate',
-    user: users[userIndex]
+    user: {
+      id: users[userIndex].id,
+      username: users[userIndex].username,
+      name: users[userIndex].name,
+      role: users[userIndex].role
+    }
   });
 });
 
-app.delete('/api/admin/users/:id', requireDeveloper, async (req, res) => {
+app.delete('/api/admin/users/:id', authenticateToken, requireDeveloper, async (req, res) => {
   const userId = parseInt(req.params.id);
   
   let users = await downloadFromGitHub();
@@ -629,7 +768,7 @@ app.get('/api/products', (req, res) => {
   res.json({ success: true, products });
 });
 
-app.post('/api/products', requireDeveloper, async (req, res) => {
+app.post('/api/products', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const { name, price, image, description, stock } = req.body;
     
@@ -657,7 +796,7 @@ app.post('/api/products', requireDeveloper, async (req, res) => {
   }
 });
 
-app.put('/api/products/:id', requireDeveloper, async (req, res) => {
+app.put('/api/products/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
     const { name, price, image, description, stock } = req.body;
@@ -684,7 +823,7 @@ app.put('/api/products/:id', requireDeveloper, async (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', requireDeveloper, async (req, res) => {
+app.delete('/api/products/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
     
@@ -735,7 +874,7 @@ app.get('/api/population', (req, res) => {
   res.json({ success: true, data });
 });
 
-app.put('/api/population', requireDeveloper, async (req, res) => {
+app.put('/api/population', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const data = req.body;
     savePopulation(data);
@@ -775,7 +914,7 @@ app.get('/api/apbdes', (req, res) => {
   res.json({ success: true, data });
 });
 
-app.put('/api/apbdes', requireDeveloper, async (req, res) => {
+app.put('/api/apbdes', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const data = req.body;
     saveAPBDes(data);
@@ -840,7 +979,7 @@ app.get('/api/team', (req, res) => {
   res.json({ success: true, team });
 });
 
-app.put('/api/team', requireDeveloper, async (req, res) => {
+app.put('/api/team', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const teamData = req.body;
     saveTeam(teamData);
@@ -864,7 +1003,31 @@ downloadFromGitHub().then(data => {
   console.log('✅ Loaded', data.length, 'users');
 });
 
+// ============================================
+// UTILITY ENDPOINTS
+// ============================================
+
+// Health check (useful for Railway/Render)
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: '2.0.0-secure-auth'
+  });
+});
+
+// Verify token (frontend can use this to check if user is still logged in)
+app.get('/api/auth/verify', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    valid: true,
+    user: req.user
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Team endpoint ready: /api/team`);
+  console.log(`✅ Secure auth system active (bcrypt + JWT)`);
+  console.log(`✅ Health check: /api/health`);
 });

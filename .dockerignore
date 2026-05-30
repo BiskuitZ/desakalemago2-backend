@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+fly.toml
+.git
+.gitignore
+.env
+.env.*
+render.yaml
+DEPLOY.md
+*.md
+backend/

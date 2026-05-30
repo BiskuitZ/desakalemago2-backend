@@ -1,0 +1,51 @@
+===============================================
+   INSTRUKSI DEPLOY FLY.IO (TANPA POWERSHELL)
+===============================================
+
+LANGKAH 1: PUSH KODE KE GITHUB
+--------------------------------
+1. Buka folder ini di File Explorer:
+   C:\Users\ASUS\Projects\desakalemago2-backend
+
+2. Cari file bernama: 
+   push-ke-github.bat
+
+3. Double klik file "push-ke-github.bat"
+
+4. Tunggu sampai muncul tulisan "Selesai!"
+   (Jendela hitam akan muncul sebentar)
+
+5. Tutup jendela tersebut.
+
+
+LANGKAH 2: BUAT APP DI FLY.IO WEBSITE
+--------------------------------------
+1. Kembali ke browser yang membuka:
+   https://fly.io/dashboard
+
+2. Klik tombol "Create app" atau "New App"
+
+3. Pilih "GitHub"
+
+4. Pilih repo kamu: BiskuitZ/desakalemago2-backend
+
+5. Isi:
+   - App Name   : desakalemago-backend (atau nama lain yang unik)
+   - Region     : Singapore (sin)
+
+6. Klik Create / Launch
+
+7. Setelah app jadi, buka tab "Secrets" dan isi:
+   - JWT_SECRET
+   - GITHUB_TOKEN
+   - GITHUB_OWNER   = biskuitz
+   - GITHUB_REPO    = desakalemago2
+
+8. Klik Deploy jika ada.
+
+
+CATATAN PENTING:
+- Kalau jendela hitam (batch) error, screenshot errornya dan kirim ke saya.
+- Kalau sudah berhasil push, balas "sudah push" ke saya.
+
+===============================================

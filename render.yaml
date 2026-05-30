@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: desakalemago-backend
+    env: node
+    region: singapore   # atau oregon / frankfurt sesuai kebutuhan
+    plan: free          # nanti bisa upgrade ke Starter jika perlu
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_OWNER
+        value: biskuitz
+      - key: GITHUB_REPO
+        value: desakalemago2     # ← WAJIB: Ini adalah repo FRONTEND (desakalemago2), bukan repo backend
+      # PORT akan otomatis disediakan oleh Render, tidak perlu di-set manual

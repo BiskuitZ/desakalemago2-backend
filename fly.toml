@@ -1,0 +1,39 @@
+# Fly.io configuration for Desa Kalemago Backend
+
+app = "desakalemago-backend"   # Nanti bisa kamu ganti nama uniknya
+primary_region = "sin"         # Singapore (paling dekat Indonesia)
+
+[build]
+  # Fly.io akan otomatis detect Node.js, tapi kita pakai Dockerfile untuk kontrol lebih baik
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"                # Fly.io biasanya pakai port 8080
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "1s"
+
+  [[services.http_checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "5s"
+    path = "/api/health"
