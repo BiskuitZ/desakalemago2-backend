@@ -31,6 +31,9 @@ app.use(cors({
   origin: [
     'https://biskuitz.github.io', 
     'https://biskuitz.github.io/desakalemago2',
+    'https://desakalemago2.vercel.app',
+    'https://kkntdesakalemago.site',
+    'https://www.kkntdesakalemago.site',
     'http://localhost:3000', 
     'http://localhost:5500',
     'http://127.0.0.1:5500'
