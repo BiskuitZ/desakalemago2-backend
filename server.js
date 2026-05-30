@@ -637,12 +637,12 @@ app.get('/api/auth/profile-legacy', async (req, res) => {
 // ============================================
 
 // ============================================
-// ADMIN / DEVELOPER ROUTES - NOW PROPERLY PROTECTED
+// ADMIN / DEVELOPER ROUTES (TEMPORARILY WITHOUT TOKEN - FOR DEVELOPMENT)
 // ============================================
+// PERINGATAN: Token authentication sementara dihapus agar bisa edit user dari HP.
+// Segera kembalikan proteksi setelah selesai testing!
 
-// All these routes now require valid JWT + correct role
-
-app.get('/api/admin/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.get('/api/admin/users', async (req, res) => {
   let users = await downloadFromGitHub();
   const safeUsers = users.map(u => ({
     id: u.id,
@@ -653,7 +653,7 @@ app.get('/api/admin/users', authenticateToken, requireAdminOrDeveloper, async (r
   res.json({ success: true, users: safeUsers });
 });
 
-app.put('/api/admin/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+app.put('/api/admin/users/:id', async (req, res) => {
   const userId = parseInt(req.params.id);
   const { username, password, name, role } = req.body;
   
@@ -685,7 +685,7 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdminOrDeveloper, asyn
   });
 });
 
-app.delete('/api/admin/users/:id', authenticateToken, requireDeveloper, async (req, res) => {
+app.delete('/api/admin/users/:id', async (req, res) => {
   const userId = parseInt(req.params.id);
   
   let users = await downloadFromGitHub();
